@@ -1,0 +1,13 @@
+com/kaola/common/model/vo/PageVO.class
+com/kaola/common/model/enums/MasseurLevel.class
+com/kaola/common/model/enums/WithdrawalStatus.class
+com/kaola/common/model/BaseEntity.class
+com/kaola/common/model/enums/PaymentStatus.class
+com/kaola/common/model/enums/CouponStatus.class
+com/kaola/common/model/enums/ComplaintStatus.class
+com/kaola/common/model/enums/ComplaintType.class
+com/kaola/common/model/enums/PaymentMethod.class
+com/kaola/common/model/enums/PaymentType.class
+com/kaola/common/model/enums/CouponType.class
+com/kaola/common/model/enums/EarningType.class
+com/kaola/common/model/enums/OrderStatus.class

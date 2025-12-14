@@ -1,0 +1,7 @@
+com/kaola/common/util/OrderNoUtil.class
+com/kaola/common/util/WechatUtil.class
+com/kaola/common/util/SignUtil.class
+com/kaola/common/util/JwtUtil.class
+com/kaola/common/util/DistanceUtil.class
+com/kaola/common/util/XmlUtil.class
+com/kaola/common/util/RandomUtil.class

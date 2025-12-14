@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: kaola-file-service
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+      discovery:
+        namespace: kaola
+        group: DEFAULT_GROUP
+      config:
+        namespace: kaola
+        group: DEFAULT_GROUP
+        file-extension: yml

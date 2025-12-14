@@ -1,0 +1,243 @@
+package com.kaola.masseur.controller;
+
+import com.kaola.common.core.dto.Result;
+import com.kaola.masseur.model.dto.MasseurDTO;
+import com.kaola.masseur.model.vo.MasseurVO;
+import com.kaola.masseur.service.MasseurService;
+// TODO: Cross-service dependency - LoginDTO should be in common-core
+// import com.kaola.common.core.dto.LoginDTO;
+// TODO: Cross-service dependency - LoginVO should be in common-core
+// import com.kaola.common.core.vo.LoginVO;
+// TODO: Cross-service dependency - TimeSlotVO should be in common-model or scheduling service
+// import com.kaola.common.model.vo.TimeSlotVO;
+// TODO: Cross-service dependency - EarningService should be handled via OpenFeign
+// import com.kaola.masseur.service.EarningService;
+// import com.kaola.masseur.model.vo.EarningStatsVO;
+// import com.kaola.masseur.model.vo.EarningDetailVO;
+// TODO: Cross-service dependency - ScheduleService should be handled via OpenFeign to scheduling service
+// import com.kaola.masseur.service.ScheduleService;
+// import com.kaola.masseur.model.vo.ScheduleVO;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * 技师接口
+ *
+ * @author Kaola Team
+ */
+@Tag(name = "技师接口", description = "技师登录、信息管理、收益、排班等接口")
+@RestController
+@RequestMapping("/masseur")
+@RequiredArgsConstructor
+@Validated
+public class MasseurController {
+
+    private final MasseurService masseurService;
+    // TODO: Cross-service dependency - EarningService should be accessed via OpenFeign from kaola-earning-service
+    // private final EarningService earningService;
+    // TODO: Cross-service dependency - ScheduleService should be accessed via OpenFeign from kaola-schedule-service
+    // private final ScheduleService scheduleService;
+
+    // TODO: Cross-service dependency - Login should be handled by auth service
+    // /**
+    //  * 技师微信登录
+    //  *
+    //  * @param loginDTO 登录请求参数
+    //  * @return 登录结果
+    //  */
+    // @Operation(summary = "技师登录", description = "技师通过微信授权码进行登录")
+    // @PostMapping("/login")
+    // public Result<LoginVO> login(@Valid @RequestBody LoginDTO loginDTO) {
+    //     LoginVO loginVO = masseurService.login(loginDTO.getCode());
+    //     return Result.success(loginVO);
+    // }
+
+    /**
+     * 获取技师信息
+     *
+     * @param masseurId 技师ID
+     * @return 技师信息
+     */
+    @Operation(summary = "获取技师信息", description = "获取当前登录技师的详细信息")
+    @GetMapping("/info")
+    public Result<MasseurVO> getMasseurInfo(
+            @Parameter(description = "技师ID", hidden = true)
+            @RequestHeader("X-Masseur-Id") Long masseurId) {
+        MasseurVO masseurVO = masseurService.getMasseurInfo(masseurId);
+        return Result.success(masseurVO);
+    }
+
+    /**
+     * 更新技师信息
+     *
+     * @param masseurId 技师ID
+     * @param dto       更新数据
+     * @return 操作结果
+     */
+    @Operation(summary = "更新技师信息", description = "更新当前登录技师的信息")
+    @PutMapping("/info")
+    public Result<Boolean> updateMasseurInfo(
+            @Parameter(description = "技师ID", hidden = true)
+            @RequestHeader("X-Masseur-Id") Long masseurId,
+            @Valid @RequestBody MasseurDTO dto) {
+        boolean success = masseurService.updateMasseurInfo(masseurId, dto);
+        return Result.success(success);
+    }
+
+    /**
+     * 获取技师详情（公开接口）
+     *
+     * @param id 技师ID
+     * @return 技师详情
+     */
+    @Operation(summary = "获取技师详情", description = "根据技师ID获取技师详细信息（公开接口）")
+    @GetMapping("/detail/{id}")
+    public Result<MasseurVO> getMasseurDetail(
+            @Parameter(description = "技师ID", required = true)
+            @PathVariable @NotNull(message = "技师ID不能为空") Long id) {
+        MasseurVO masseurVO = masseurService.getMasseurInfo(id);
+        return Result.success(masseurVO);
+    }
+
+    /**
+     * 获取技师列表
+     *
+     * @param storeId   门店ID
+     * @param symptomId 症状ID
+     * @return 技师列表
+     */
+    @Operation(summary = "获取技师列表", description = "根据门店或症状获取技师列表")
+    @GetMapping("/list")
+    public Result<List<MasseurVO>> getMasseurList(
+            @Parameter(description = "门店ID")
+            @RequestParam(required = false) Long storeId,
+            @Parameter(description = "症状ID")
+            @RequestParam(required = false) Long symptomId) {
+        List<MasseurVO> masseurList;
+        if (symptomId != null) {
+            masseurList = masseurService.getMasseursBySymptom(symptomId);
+        } else if (storeId != null) {
+            masseurList = masseurService.getMasseursByStore(storeId);
+        } else {
+            masseurList = masseurService.getMasseursByStore(null);
+        }
+        return Result.success(masseurList);
+    }
+
+    // TODO: Cross-service dependency - Available time should be fetched via OpenFeign from kaola-schedule-service
+    // /**
+    //  * 获取可预约时间
+    //  *
+    //  * @param masseurId 技师ID
+    //  * @param date      日期
+    //  * @return 可预约时间段列表
+    //  */
+    // @Operation(summary = "获取可预约时间", description = "获取指定技师在指定日期的可预约时间段")
+    // @GetMapping("/available-time")
+    // public Result<List<TimeSlotVO>> getAvailableTime(
+    //         @Parameter(description = "技师ID", required = true)
+    //         @RequestParam @NotNull(message = "技师ID不能为空") Long masseurId,
+    //         @Parameter(description = "日期", required = true)
+    //         @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {
+    //     List<TimeSlotVO> timeSlots = masseurService.getAvailableTime(masseurId, date);
+    //     return Result.success(timeSlots);
+    // }
+
+    // TODO: Cross-service dependency - Earnings should be fetched via OpenFeign from kaola-earning-service
+    // /**
+    //  * 获取收益统计
+    //  *
+    //  * @param masseurId 技师ID
+    //  * @return 收益统计信息
+    //  */
+    // @Operation(summary = "获取收益统计", description = "获取当前技师的收益统计信息")
+    // @GetMapping("/earnings")
+    // public Result<EarningStatsVO> getEarnings(
+    //         @Parameter(description = "技师ID", hidden = true)
+    //         @RequestHeader("X-Masseur-Id") Long masseurId) {
+    //     EarningStatsVO earningStats = earningService.getEarningStats(masseurId);
+    //     return Result.success(earningStats);
+    // }
+
+    // TODO: Cross-service dependency - Earnings should be fetched via OpenFeign from kaola-earning-service
+    // /**
+    //  * 获取收益明细
+    //  *
+    //  * @param masseurId 技师ID
+    //  * @param month     月份
+    //  * @return 收益明细列表
+    //  */
+    // @Operation(summary = "获取收益明细", description = "获取指定月份的收益明细列表")
+    // @GetMapping("/earnings/list")
+    // public Result<List<EarningDetailVO>> getEarningList(
+    //         @Parameter(description = "技师ID", hidden = true)
+    //         @RequestHeader("X-Masseur-Id") Long masseurId,
+    //         @Parameter(description = "月份，格式：yyyy-MM")
+    //         @RequestParam(required = false) String month) {
+    //     List<EarningDetailVO> earningList = earningService.getEarningList(masseurId, month);
+    //     return Result.success(earningList);
+    // }
+
+    // TODO: Cross-service dependency - Withdrawal should be handled via OpenFeign to kaola-earning-service
+    // /**
+    //  * 提现申请
+    //  *
+    //  * @param masseurId   技师ID
+    //  * @param amount      提现金额
+    //  * @param bankAccount 银行账户
+    //  * @return 操作结果
+    //  */
+    // @Operation(summary = "提现申请", description = "技师发起提现申请")
+    // @PostMapping("/withdraw")
+    // public Result<Boolean> withdraw(
+    //         @Parameter(description = "技师ID", hidden = true)
+    //         @RequestHeader("X-Masseur-Id") Long masseurId,
+    //         @Parameter(description = "提现金额", required = true)
+    //         @RequestParam @NotNull(message = "提现金额不能为空") BigDecimal amount,
+    //         @Parameter(description = "银行账户", required = true)
+    //         @RequestParam @NotBlank(message = "银行账户不能为空") String bankAccount) {
+    //     boolean success = earningService.withdraw(masseurId, amount, bankAccount);
+    //     return Result.success(success);
+    // }
+
+    // TODO: Cross-service dependency - Schedule should be fetched via OpenFeign from kaola-schedule-service
+    // /**
+    //  * 获取排班
+    //  *
+    //  * @param masseurId 技师ID
+    //  * @param startDate 开始日期
+    //  * @param endDate   结束日期
+    //  * @return 排班列表
+    //  */
+    // @Operation(summary = "获取排班", description = "获取技师在指定日期范围内的排班")
+    // @GetMapping("/schedule")
+    // public Result<List<ScheduleVO>> getSchedule(
+    //         @Parameter(description = "技师ID", hidden = true)
+    //         @RequestHeader("X-Masseur-Id") Long masseurId,
+    //         @Parameter(description = "开始日期")
+    //         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+    //         @Parameter(description = "结束日期")
+    //         @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
+    //     // 默认查询未来7天
+    //     if (startDate == null) {
+    //         startDate = LocalDate.now();
+    //     }
+    //     if (endDate == null) {
+    //         endDate = startDate.plusDays(7);
+    //     }
+    //     List<ScheduleVO> scheduleList = scheduleService.getScheduleList(masseurId, startDate, endDate);
+    //     return Result.success(scheduleList);
+    // }
+}

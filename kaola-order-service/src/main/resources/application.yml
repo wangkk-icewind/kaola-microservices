@@ -1,0 +1,61 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: kaola-order-service
+
+  config:
+    import: optional:nacos:localhost:8848
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: public
+        group: DEFAULT_GROUP
+      config:
+        server-addr: localhost:8848
+        namespace: public
+        group: DEFAULT_GROUP
+        file-extension: yml
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/kaola_massage?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: kaola123456
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+
+mybatis-plus:
+  type-aliases-package: com.kaola.order.model.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+knife4j:
+  enable: true
+  openapi:
+    title: 考拉推拿 - 订单服务 API
+    description: 订单管理、订单状态流转、订单评价接口文档
+    version: 1.0.0
+    contact:
+      name: Kaola Team
+      email: dev@kaola.com
+
+logging:
+  level:
+    com.kaola.order: DEBUG
+    com.kaola.order.mapper: DEBUG
+
+# Actuator 健康检查配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

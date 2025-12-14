@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: kaola-admin-service
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+      discovery:
+        namespace: public
+        group: DEFAULT_GROUP
+      config:
+        namespace: public
+        group: DEFAULT_GROUP
+        file-extension: yml

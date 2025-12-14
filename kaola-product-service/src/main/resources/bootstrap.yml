@@ -1,0 +1,18 @@
+spring:
+  application:
+
+  config:
+    import: optional:nacos:
+    name: kaola-product-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: public
+        group: DEFAULT_GROUP
+      config:
+        server-addr: localhost:8848
+        namespace: public
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true

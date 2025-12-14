@@ -1,0 +1,12 @@
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/config/PaymentConfig.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/mapper/PaymentMapper.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/controller/PaymentController.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/PaymentServiceApplication.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/model/enums/PaymentStatus.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/model/enums/PaymentMethod.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/config/MyBatisPlusConfig.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/model/enums/PaymentType.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/model/vo/PaymentVO.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/model/entity/Payment.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/service/impl/PaymentServiceImpl.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-payment-service/src/main/java/com/kaola/payment/service/PaymentService.java

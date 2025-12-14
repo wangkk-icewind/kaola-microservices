@@ -1,0 +1,13 @@
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/mapper/AdminRoleMapper.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/service/AdminRoleService.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/controller/AdminAuthController.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/model/entity/AdminUser.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/model/entity/AdminRole.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/controller/AdminRoleController.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/service/impl/AdminUserServiceImpl.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/config/MyBatisPlusConfig.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/AuthServiceApplication.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/model/vo/AdminLoginVO.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/service/AdminUserService.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/mapper/AdminUserMapper.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-auth-service/src/main/java/com/kaola/auth/service/impl/AdminRoleServiceImpl.java

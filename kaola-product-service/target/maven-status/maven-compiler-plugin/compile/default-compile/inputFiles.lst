@@ -1,0 +1,16 @@
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/controller/ProjectController.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/mapper/CategoryMapper.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/ProductServiceApplication.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/model/vo/ProjectCategoryVO.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/model/entity/Project.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/service/ProjectService.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/config/MyBatisPlusConfig.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/controller/AdminProjectController.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/controller/CategoryController.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/mapper/ProjectMapper.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/service/impl/ProjectServiceImpl.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/model/vo/ProjectVO.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/model/vo/CategoryVO.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/mapper/ProjectCategoryMapper.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/model/vo/PriceCalculationVO.java
+/Users/icewind/Documents/workspaces/kaola-microservices/kaola-product-service/src/main/java/com/kaola/product/model/entity/ProjectCategory.java
