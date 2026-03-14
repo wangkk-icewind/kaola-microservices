@@ -1,9 +1,0 @@
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/model/entity/Schedule.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/model/dto/ScheduleDTO.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/mapper/LeaveRequestMapper.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/model/entity/LeaveRequest.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/ScheduleServiceApplication.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/controller/ScheduleController.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/mapper/ScheduleMapper.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/controller/LeaveController.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-schedule-service/src/main/java/com/kaola/schedule/config/MyBatisPlusConfig.java

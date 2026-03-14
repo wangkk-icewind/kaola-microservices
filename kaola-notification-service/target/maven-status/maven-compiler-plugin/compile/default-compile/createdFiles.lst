@@ -1,8 +1,0 @@
-com/kaola/notification/NotificationServiceApplication.class
-com/kaola/notification/service/impl/SmsServiceImpl.class
-com/kaola/notification/controller/NotificationController.class
-com/kaola/notification/config/AliyunSmsConfig.class
-com/kaola/notification/config/MyBatisPlusConfig.class
-com/kaola/notification/config/MyBatisPlusConfig$1.class
-com/kaola/notification/service/SmsService.class
-com/kaola/notification/model/dto/Result.class

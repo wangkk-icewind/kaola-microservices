@@ -1,9 +1,0 @@
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/service/ReviewService.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/ReviewServiceApplication.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/model/vo/ReviewVO.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/mapper/ReviewMapper.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/service/impl/ReviewServiceImpl.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/controller/ReviewController.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/config/MyBatisPlusConfig.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/model/dto/ReviewDTO.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-review-service/src/main/java/com/kaola/review/model/entity/Review.java

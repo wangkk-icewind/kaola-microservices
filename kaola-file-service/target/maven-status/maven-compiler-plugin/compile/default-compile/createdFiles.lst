@@ -1,7 +1,0 @@
-com/kaola/file/service/OssService.class
-com/kaola/file/config/WebMvcConfig.class
-com/kaola/file/config/MyBatisPlusConfig.class
-com/kaola/file/controller/UploadController.class
-com/kaola/file/FileServiceApplication.class
-com/kaola/file/service/impl/OssServiceImpl.class
-com/kaola/file/config/MyBatisPlusConfig$1.class

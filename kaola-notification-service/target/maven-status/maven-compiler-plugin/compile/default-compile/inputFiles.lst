@@ -1,7 +1,0 @@
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-notification-service/src/main/java/com/kaola/notification/NotificationServiceApplication.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-notification-service/src/main/java/com/kaola/notification/model/dto/Result.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-notification-service/src/main/java/com/kaola/notification/controller/NotificationController.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-notification-service/src/main/java/com/kaola/notification/service/impl/SmsServiceImpl.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-notification-service/src/main/java/com/kaola/notification/config/AliyunSmsConfig.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-notification-service/src/main/java/com/kaola/notification/service/SmsService.java
-/Users/icewind/Documents/workspaces/kaola-microservices/kaola-notification-service/src/main/java/com/kaola/notification/config/MyBatisPlusConfig.java
