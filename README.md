@@ -330,5 +330,191 @@ A:
 
 ---
 
-**文档版本**: v1.0
-**最后更新**: 2025-11-28
+## 重要启动说明 (2026-01-26更新)
+
+### 关键依赖修复
+
+在首次启动前，必须先构建 kaola-common 模块。该模块的 POM 文件已修复以下依赖版本问题：
+
+**kaola-common-util/pom.xml**:
+- JWT 依赖版本: 0.12.3 (必须使用此版本，0.11.5 不兼容)
+
+**kaola-common-model/pom.xml**:
+- MyBatis Plus 版本: 3.5.9
+
+**构建命令**:
+```bash
+cd kaola-common
+mvn clean install -DskipTests
+```
+
+### 正确的端口配置
+
+**注意**: Gateway 实际运行在 **8090** 端口，而非文档中的 8080。
+
+| 服务名称 | 实际端口 | 说明 |
+|---------|---------|------|
+| kaola-gateway | **8090** | API 网关 (已更新) |
+| kaola-auth-service | 8081 | 认证授权服务 |
+| kaola-user-service | 8082 | 用户服务 |
+| kaola-store-service | 8083 | 门店服务 |
+| kaola-masseur-service | 8084 | 技师服务 |
+| kaola-product-service | 8085 | 产品服务 |
+| kaola-order-service | 8086 | 订单服务 |
+| kaola-admin-service | 8095 | 管理后台服务 |
+| Nacos Server | 8848/9848 | 服务注册中心 |
+
+### 完整启动流程
+
+#### 1. 启动基础设施
+
+```bash
+# 启动 Nacos (Docker 方式)
+docker run -d --name nacos-server \
+  -e MODE=standalone \
+  -p 8848:8848 -p 9848:9848 \
+  nacos/nacos-server:v2.3.0
+
+# 验证 Nacos 启动
+curl http://localhost:8848/nacos
+```
+
+#### 2. 构建 kaola-common 模块
+
+```bash
+cd /path/to/kaola-microservices/kaola-common
+mvn clean install -DskipTests
+```
+
+#### 3. 启动微服务 (推荐顺序)
+
+```bash
+# 启动 Gateway
+cd ../kaola-gateway
+mvn spring-boot:run -DskipTests &
+
+# 启动核心服务
+cd ../kaola-product-service
+mvn spring-boot:run -DskipTests &
+
+cd ../kaola-auth-service
+mvn spring-boot:run -DskipTests &
+
+cd ../kaola-user-service
+mvn spring-boot:run -DskipTests &
+
+cd ../kaola-store-service
+mvn spring-boot:run -DskipTests &
+
+cd ../kaola-masseur-service
+mvn spring-boot:run -DskipTests &
+
+cd ../kaola-order-service
+mvn spring-boot:run -DskipTests &
+
+cd ../kaola-admin-service
+mvn spring-boot:run -DskipTests &
+```
+
+#### 4. 启动前端
+
+```bash
+cd /path/to/kaola/admin-web
+npm run dev
+# 访问: http://localhost:3002
+```
+
+### 验证服务状态
+
+```bash
+# 检查所有服务端口
+lsof -i :8081 -i :8082 -i :8083 -i :8084 -i :8085 -i :8086 -i :8090 -i :8095 | grep LISTEN
+
+# 查看 Nacos 注册的服务
+curl http://localhost:8848/nacos/v1/ns/instance/list?serviceName=kaola-gateway
+
+# 测试 Gateway 路由
+curl http://localhost:8090/api/admin/project/list
+```
+
+### 前端配置
+
+admin-web 的 vite.config.ts 已配置为通过 Gateway 访问所有 API:
+
+```typescript
+server: {
+  port: 3002,
+  proxy: {
+    '/api': {
+      target: 'http://localhost:8090',  // Gateway 端口
+      changeOrigin: true,
+    },
+  },
+}
+```
+
+### 常见启动问题
+
+**问题 1: kaola-common 依赖找不到**
+```
+解决: 先执行 cd kaola-common && mvn clean install -DskipTests
+```
+
+**问题 2: JWT 版本不兼容错误**
+```
+错误: 找不到符号 verifyWith(javax.crypto.SecretKey)
+解决: 确保 kaola-common-util/pom.xml 中 JWT 版本为 0.12.3
+```
+
+**问题 3: Nacos 连接失败**
+```
+错误: Connection refused: localhost:9848
+解决: 启动 Nacos Docker 容器或本地 Nacos 服务
+```
+
+**问题 4: 端口被占用**
+```
+解决: 使用 lsof -i :端口号 查找占用进程，kill 后重启
+```
+
+### 快速重启脚本
+
+创建 `start-all.sh`:
+```bash
+#!/bin/bash
+
+# 启动 Nacos
+docker start nacos-server || docker run -d --name nacos-server -e MODE=standalone -p 8848:8848 -p 9848:9848 nacos/nacos-server:v2.3.0
+
+# 等待 Nacos 启动
+sleep 10
+
+# 启动所有微服务
+cd /path/to/kaola-microservices
+
+services=(
+  "kaola-gateway"
+  "kaola-product-service"
+  "kaola-auth-service"
+  "kaola-user-service"
+  "kaola-store-service"
+  "kaola-masseur-service"
+  "kaola-order-service"
+  "kaola-admin-service"
+)
+
+for service in "${services[@]}"; do
+  echo "Starting $service..."
+  cd $service
+  mvn spring-boot:run -DskipTests > /dev/null 2>&1 &
+  cd ..
+  sleep 5
+done
+
+echo "All services started!"
+```
+
+---
+
+**文档版本**: v1.1
+**最后更新**: 2026-01-26

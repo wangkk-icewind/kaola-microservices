@@ -61,4 +61,29 @@ public interface MasseurMapper extends BaseMapper<Masseur> {
      */
     @Select("SELECT * FROM t_masseur WHERE level = #{level} AND status = 1 AND deleted = 0")
     List<Masseur> findByLevel(@Param("level") Integer level);
+
+    /**
+     * 根据项目分类ID查询技师列表（通过masseur_project和t_project表关联）
+     */
+    @Select("SELECT DISTINCT m.* FROM t_masseur m " +
+            "INNER JOIN masseur_project mp ON m.id = mp.masseur_id " +
+            "INNER JOIN t_project p ON mp.project_id = p.id " +
+            "WHERE p.category_id = #{categoryId} " +
+            "AND m.status = 1 AND m.deleted = 0 " +
+            "AND p.deleted = 0 " +
+            "ORDER BY m.rating DESC")
+    List<Masseur> findByCategoryId(@Param("categoryId") Long categoryId);
+
+    /**
+     * 根据门店ID和项目分类ID查询技师列表
+     */
+    @Select("SELECT DISTINCT m.* FROM t_masseur m " +
+            "INNER JOIN masseur_project mp ON m.id = mp.masseur_id " +
+            "INNER JOIN t_project p ON mp.project_id = p.id " +
+            "WHERE m.store_id = #{storeId} " +
+            "AND p.category_id = #{categoryId} " +
+            "AND m.status = 1 AND m.deleted = 0 " +
+            "AND p.deleted = 0 " +
+            "ORDER BY m.rating DESC")
+    List<Masseur> findByStoreIdAndCategoryId(@Param("storeId") Long storeId, @Param("categoryId") Long categoryId);
 }

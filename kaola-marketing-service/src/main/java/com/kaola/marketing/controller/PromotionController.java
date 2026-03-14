@@ -43,6 +43,39 @@ public class PromotionController {
     }
 
     /**
+     * 获取门店促销活动（RESTful风格）
+     *
+     * @param storeId 门店ID
+     * @return 促销活动列表
+     */
+    @Operation(summary = "获取门店促销活动", description = "获取指定门店的促销活动列表（RESTful风格）")
+    @GetMapping("/store/{storeId}/promotions")
+    public Result<List<PromotionVO>> getStorePromotions(
+            @Parameter(description = "门店ID", required = true)
+            @PathVariable Long storeId) {
+        List<PromotionVO> promotions = promotionService.getActivePromotions(storeId);
+        return Result.success(promotions);
+    }
+
+    /**
+     * 获取优惠券列表（小程序端）
+     *
+     * @param userId 用户ID（可选）
+     * @return 优惠券列表
+     */
+    @Operation(summary = "获取优惠券列表", description = "获取可用的优惠券列表")
+    @GetMapping("/coupons")
+    public Result<List<CouponVO>> getCouponList(
+            @Parameter(description = "用户ID")
+            @RequestParam(required = false) Long userId) {
+        // 如果没有提供userId，返回所有可用优惠券；否则返回用户的优惠券
+        List<CouponVO> coupons = userId != null
+            ? promotionService.getAvailableCoupons(userId)
+            : promotionService.getAvailableCoupons(null);
+        return Result.success(coupons);
+    }
+
+    /**
      * 获取可用优惠券
      *
      * @param userId 用户ID

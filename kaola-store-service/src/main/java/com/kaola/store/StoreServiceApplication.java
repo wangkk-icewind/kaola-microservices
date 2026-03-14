@@ -3,8 +3,10 @@ package com.kaola.store;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 
+@EnableCaching
 @SpringBootApplication(scanBasePackages = {"com.kaola.store", "com.kaola.common"})
 @EnableDiscoveryClient
 @MapperScan("com.kaola.store.mapper")

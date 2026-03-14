@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kaola.common.model.BaseEntity;
+import com.kaola.product.model.base.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -50,6 +50,12 @@ public class Project extends BaseEntity {
      */
     @TableField("base_price")
     private BigDecimal basePrice;
+
+    /**
+     * 加钟每分钟单价（如果为NULL则自动计算 = base_price / duration）
+     */
+    @TableField("extra_price_per_minute")
+    private BigDecimal extraPricePerMinute;
 
     /**
      * 项目描述

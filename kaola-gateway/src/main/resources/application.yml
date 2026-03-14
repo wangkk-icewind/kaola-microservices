@@ -72,11 +72,27 @@ spring:
           filters:
             - StripPrefix=1
 
+        # Marketing Service 路由 - Store Promotions (must come before general store route)
+        - id: kaola-marketing-service-store-promotions
+          uri: http://localhost:8092
+          predicates:
+            - Path=/api/store/*/promotions
+          filters:
+            - StripPrefix=1
+
         # Store Service 路由 - Public
         - id: kaola-store-service-public
           uri: http://localhost:8083
           predicates:
             - Path=/api/store/**
+          filters:
+            - StripPrefix=1
+
+        # City Service 路由 - Public (城市列表和搜索)
+        - id: kaola-city-service-public
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/city/**
           filters:
             - StripPrefix=1
 
@@ -125,6 +141,22 @@ spring:
           uri: http://localhost:8085
           predicates:
             - Path=/api/category/**
+          filters:
+            - StripPrefix=1
+
+        # Product Service 路由 - Admin Pricing (定价配置管理)
+        - id: kaola-product-service-admin-pricing
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/admin/pricing/**
+          filters:
+            - StripPrefix=1
+
+        # Product Service 路由 - Admin Price Calculation (价格计算)
+        - id: kaola-product-service-admin-price
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/admin/price/**
           filters:
             - StripPrefix=1
 
@@ -205,6 +237,14 @@ spring:
           uri: http://localhost:8092
           predicates:
             - Path=/api/coupon/**
+          filters:
+            - StripPrefix=1
+
+        # Marketing Service 路由 - Price Config (定价配置)
+        - id: kaola-marketing-service-price
+          uri: http://localhost:8092
+          predicates:
+            - Path=/api/price/**
           filters:
             - StripPrefix=1
 

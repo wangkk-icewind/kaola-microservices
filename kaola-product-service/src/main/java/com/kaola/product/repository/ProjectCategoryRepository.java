@@ -1,4 +1,4 @@
-package com.kaola.product.mapper;
+package com.kaola.product.repository;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.kaola.product.model.entity.ProjectCategory;
@@ -14,7 +14,7 @@ import java.util.List;
  * @author Kaola Team
  */
 @Mapper
-public interface ProjectCategoryMapper extends BaseMapper<ProjectCategory> {
+public interface ProjectCategoryRepository extends BaseMapper<ProjectCategory> {
 
     /**
      * 查询所有启用的分类

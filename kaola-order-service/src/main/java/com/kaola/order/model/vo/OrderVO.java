@@ -40,6 +40,11 @@ public class OrderVO implements Serializable {
     private String statusText;
 
     /**
+     * 订单类型：SERVICE-服务订单, PRODUCT-商品订单, GIFT_CARD-礼卡订单
+     */
+    private String orderType;
+
+    /**
      * 总金额
      */
     private BigDecimal totalAmount;

@@ -1,15 +1,37 @@
 package com.kaola.product.model.vo;
 
 import lombok.Data;
-import java.io.Serializable;
+
+import java.util.List;
 
 /**
- * 项目分类VO（简化版）
+ * 分类VO - 包含项目列表
  */
 @Data
-public class CategoryVO implements Serializable {
+public class CategoryVO {
+
+    /**
+     * 分类ID
+     */
     private Long id;
+
+    /**
+     * 分类名称
+     */
     private String name;
+
+    /**
+     * 分类图标
+     */
     private String icon;
+
+    /**
+     * 排序值
+     */
     private Integer sort;
+
+    /**
+     * 该分类下的项目列表
+     */
+    private List<ProjectVO> projects;
 }

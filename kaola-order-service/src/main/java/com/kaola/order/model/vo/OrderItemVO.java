@@ -69,4 +69,19 @@ public class OrderItemVO implements Serializable {
      * 技师头像
      */
     private String masseurAvatar;
+
+    /**
+     * 商品ID（商品订单专用）
+     */
+    private Long productId;
+
+    /**
+     * 商品名称（商品订单专用）
+     */
+    private String productName;
+
+    /**
+     * 商品图片（商品订单专用）
+     */
+    private String productImage;
 }

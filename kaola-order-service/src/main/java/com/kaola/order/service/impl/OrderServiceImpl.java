@@ -10,6 +10,7 @@ import com.kaola.order.model.vo.OrderItemVO;
 import com.kaola.order.model.vo.OrderVO;
 import com.kaola.order.mapper.OrderItemMapper;
 import com.kaola.order.mapper.OrderMapper;
+import com.kaola.order.service.MasseurCacheService;
 import com.kaola.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,9 +45,9 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderRepository;
     private final OrderItemMapper orderItemMapper;
     private final RestTemplate restTemplate;
+    private final MasseurCacheService masseurCacheService;
 
     private static final String PRODUCT_SERVICE_URL = "http://localhost:8085";
-    private static final String MASSEUR_SERVICE_URL = "http://localhost:8084";
 
 // TODO: 待 store-service 创建后，通过 OpenFeign 获取门店信息
     //     private final StoreRepository storeRepository;
@@ -85,45 +86,85 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
 
-        for (OrderItemDTO itemDTO : dto.getItems()) {
-            // 获取项目详情
-            Map<String, Object> projectInfo = getProjectInfo(itemDTO.getProjectId());
-            if (projectInfo == null) {
-                throw new RuntimeException("项目不存在: " + itemDTO.getProjectId());
-            }
+        // 用于判断订单类型：根据第一个订单项的类型决定
+        String orderType = null;
 
+        for (OrderItemDTO itemDTO : dto.getItems()) {
             // 创建订单项
             OrderItem orderItem = new OrderItem();
             orderItem.setOrderId(order.getId());
-            orderItem.setMasseurId(itemDTO.getMasseurId());
-            orderItem.setProjectId(itemDTO.getProjectId());
+            orderItem.setItemType(itemDTO.getItemType()); // 设置订单项类型
 
-            // 获取项目价格和时长
-            Object priceObj = projectInfo.get("price");
-            BigDecimal price = priceObj instanceof Number ?
-                new BigDecimal(priceObj.toString()) : BigDecimal.ZERO;
-            orderItem.setPrice(price);
-
-            Object durationObj = projectInfo.get("duration");
-            Integer duration = durationObj instanceof Number ?
-                ((Number) durationObj).intValue() : 0;
-            orderItem.setDuration(duration);
-
-            // 处理加钟
-            if (itemDTO.getExtraDuration() != null && itemDTO.getExtraDuration() > 0) {
-                orderItem.setExtraDuration(itemDTO.getExtraDuration());
-                // TODO: 加钟费用计算逻辑待完善
-                orderItem.setExtraPrice(BigDecimal.ZERO);
+            // 设置订单类型（以第一个订单项为准）
+            if (orderType == null) {
+                if ("PRODUCT".equals(itemDTO.getItemType()) || "GIFT_CARD".equals(itemDTO.getItemType())) {
+                    orderType = "PRODUCT";
+                } else {
+                    orderType = "SERVICE";
+                }
             }
 
-            orderItem.setStatus(1); // 待服务
+            BigDecimal price;
+            Integer duration = 0;
+
+            // 根据订单项类型获取不同的信息
+            if ("PRODUCT".equals(itemDTO.getItemType()) || "GIFT_CARD".equals(itemDTO.getItemType())) {
+                // 商品订单/礼卡订单：使用 productId
+                orderItem.setProductId(itemDTO.getProductId());
+                orderItem.setQuantity(itemDTO.getQuantity() != null ? itemDTO.getQuantity() : 1);
+
+                // 获取商品信息
+                Map<String, Object> productInfo = getProductInfo(itemDTO.getProductId());
+                if (productInfo == null) {
+                    throw new RuntimeException("商品不存在: " + itemDTO.getProductId());
+                }
+
+                Object priceObj = productInfo.get("price");
+                price = priceObj instanceof Number ?
+                    new BigDecimal(priceObj.toString()) : BigDecimal.ZERO;
+
+                // 商品订单按数量计算
+                orderItem.setPrice(price);
+                totalAmount = totalAmount.add(price.multiply(new BigDecimal(orderItem.getQuantity())));
+
+            } else {
+                // 服务订单：使用 projectId
+                orderItem.setMasseurId(itemDTO.getMasseurId());
+                orderItem.setProjectId(itemDTO.getProjectId());
+
+                // 获取项目详情
+                Map<String, Object> projectInfo = getProjectInfo(itemDTO.getProjectId());
+                if (projectInfo == null) {
+                    throw new RuntimeException("项目不存在: " + itemDTO.getProjectId());
+                }
+
+                // 获取项目价格和时长
+                Object priceObj = projectInfo.get("price");
+                price = priceObj instanceof Number ?
+                    new BigDecimal(priceObj.toString()) : BigDecimal.ZERO;
+                orderItem.setPrice(price);
+
+                Object durationObj = projectInfo.get("duration");
+                duration = durationObj instanceof Number ?
+                    ((Number) durationObj).intValue() : 0;
+                orderItem.setDuration(duration);
+
+                // 处理加钟
+                if (itemDTO.getExtraDuration() != null && itemDTO.getExtraDuration() > 0) {
+                    orderItem.setExtraDuration(itemDTO.getExtraDuration());
+                    // TODO: 加钟费用计算逻辑待完善
+                    orderItem.setExtraPrice(BigDecimal.ZERO);
+                }
+
+                // 累加总金额
+                totalAmount = totalAmount.add(price);
+                if (orderItem.getExtraPrice() != null) {
+                    totalAmount = totalAmount.add(orderItem.getExtraPrice());
+                }
+            }
+
+            orderItem.setStatus(1); // 待服务/待发货
             orderItems.add(orderItem);
-
-            // 累加总金额
-            totalAmount = totalAmount.add(price);
-            if (orderItem.getExtraPrice() != null) {
-                totalAmount = totalAmount.add(orderItem.getExtraPrice());
-            }
         }
 
         // 保存订单项
@@ -133,10 +174,16 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 更新订单金额
+        // 更新订单类型和金额
+        if (orderType != null) {
+            order.setOrderType(orderType);
+            log.info("设置订单类型: orderId={}, orderType={}", order.getId(), orderType);
+        }
         order.setTotalAmount(totalAmount);
         order.setPayAmount(totalAmount.subtract(order.getDiscountAmount()));
+        log.info("更新订单前: orderId={}, orderType={}, totalAmount={}", order.getId(), order.getOrderType(), totalAmount);
         orderRepository.updateById(order);
+        log.info("更新订单后，重新查询验证: orderId={}", order.getId());
 
         log.info("订单创建成功, orderId: {}, orderNo: {}, totalAmount: {}",
             order.getId(), order.getOrderNo(), totalAmount);
@@ -299,39 +346,63 @@ public class OrderServiceImpl implements OrderService {
     private OrderItemVO buildOrderItemVO(OrderItem item) {
         OrderItemVO vo = new OrderItemVO();
         vo.setId(item.getId());
-        vo.setProjectId(item.getProjectId());
-        vo.setMasseurId(item.getMasseurId());
         vo.setPrice(item.getPrice());
-        vo.setDuration(item.getDuration());
-        vo.setQuantity(1); // 默认数量为1
 
-        // 计算小计
-        BigDecimal subtotal = item.getPrice();
-        if (item.getExtraPrice() != null) {
-            subtotal = subtotal.add(item.getExtraPrice());
-        }
-        vo.setSubtotal(subtotal);
+        // 根据订单项类型处理不同的信息
+        if ("PRODUCT".equals(item.getItemType())) {
+            // 商品订单项
+            vo.setProductId(item.getProductId());
+            vo.setQuantity(item.getQuantity() != null ? item.getQuantity() : 1);
 
-        // 获取项目信息
-        try {
-            Map<String, Object> projectInfo = getProjectInfo(item.getProjectId());
-            if (projectInfo != null) {
-                vo.setProjectName((String) projectInfo.get("name"));
-                vo.setProjectImage((String) projectInfo.get("image"));
+            // 计算小计（价格 × 数量）
+            BigDecimal subtotal = item.getPrice().multiply(new BigDecimal(vo.getQuantity()));
+            vo.setSubtotal(subtotal);
+
+            // 获取商品信息
+            try {
+                Map<String, Object> productInfo = getProductInfo(item.getProductId());
+                if (productInfo != null) {
+                    vo.setProductName((String) productInfo.get("name"));
+                    vo.setProductImage((String) productInfo.get("image"));
+                }
+            } catch (Exception e) {
+                log.error("获取商品信息失败, productId: {}", item.getProductId(), e);
             }
-        } catch (Exception e) {
-            log.error("获取项目信息失败, projectId: {}", item.getProjectId(), e);
-        }
+        } else {
+            // 服务订单项
+            vo.setProjectId(item.getProjectId());
+            vo.setMasseurId(item.getMasseurId());
+            vo.setDuration(item.getDuration());
+            vo.setQuantity(1); // 默认数量为1
 
-        // 获取技师信息
-        try {
-            Map<String, Object> masseurInfo = getMasseurInfo(item.getMasseurId());
-            if (masseurInfo != null) {
-                vo.setMasseurName((String) masseurInfo.get("name"));
-                vo.setMasseurAvatar((String) masseurInfo.get("avatar"));
+            // 计算小计
+            BigDecimal subtotal = item.getPrice();
+            if (item.getExtraPrice() != null) {
+                subtotal = subtotal.add(item.getExtraPrice());
             }
-        } catch (Exception e) {
-            log.error("获取技师信息失败, masseurId: {}", item.getMasseurId(), e);
+            vo.setSubtotal(subtotal);
+
+            // 获取项目信息
+            try {
+                Map<String, Object> projectInfo = getProjectInfo(item.getProjectId());
+                if (projectInfo != null) {
+                    vo.setProjectName((String) projectInfo.get("name"));
+                    vo.setProjectImage((String) projectInfo.get("image"));
+                }
+            } catch (Exception e) {
+                log.error("获取项目信息失败, projectId: {}", item.getProjectId(), e);
+            }
+
+            // 获取技师信息
+            try {
+                Map<String, Object> masseurInfo = getMasseurInfo(item.getMasseurId());
+                if (masseurInfo != null) {
+                    vo.setMasseurName((String) masseurInfo.get("name"));
+                    vo.setMasseurAvatar((String) masseurInfo.get("avatar"));
+                }
+            } catch (Exception e) {
+                log.error("获取技师信息失败, masseurId: {}", item.getMasseurId(), e);
+            }
         }
 
         return vo;
@@ -378,16 +449,43 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * 获取技师信息
-     * TODO: 待masseur-service API完善后，通过HTTP调用获取真实数据
+     * 获取商品信息
+     * TODO: 待product-service API完善后，通过HTTP调用获取真实数据
+     */
+    private Map<String, Object> getProductInfo(Long productId) {
+        // 尝试通过 product-service 获取商品信息
+        try {
+            String url = PRODUCT_SERVICE_URL + "/product/" + productId;
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            Map<String, Object> body = response.getBody();
+            if (body != null && Integer.valueOf(0).equals(body.get("code"))) {
+                return (Map<String, Object>) body.get("data");
+            }
+        } catch (Exception e) {
+            log.warn("调用 product-service 失败，使用模拟数据, productId: {}", productId, e);
+        }
+
+        // 如果调用失败，返回模拟数据
+        Map<String, Object> productInfo = new java.util.HashMap<>();
+        productInfo.put("id", productId);
+        productInfo.put("name", "商品" + productId);
+        productInfo.put("price", 199);
+        productInfo.put("image", "https://example.com/product" + productId + ".jpg");
+        return productInfo;
+    }
+
+    /**
+     * 获取技师信息（使用缓存服务）
      */
     private Map<String, Object> getMasseurInfo(Long masseurId) {
-        // 临时使用模拟数据
-        Map<String, Object> masseurInfo = new java.util.HashMap<>();
-        masseurInfo.put("id", masseurId);
-        masseurInfo.put("name", "技师" + masseurId + "号");
-        masseurInfo.put("avatar", "https://example.com/avatar" + masseurId + ".jpg");
-        return masseurInfo;
+        // 使用缓存服务获取技师信息（自带Feign调用、Redis缓存、降级策略）
+        return masseurCacheService.getMasseurInfo(masseurId);
     }
 
     /**

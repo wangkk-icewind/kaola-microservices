@@ -3,16 +3,16 @@ package com.kaola.product;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * 产品服务启动类
  *
  * @author Kaola Team
  */
-@SpringBootApplication(scanBasePackages = {"com.kaola.product", "com.kaola.common"})
-@EnableDiscoveryClient
-@MapperScan("com.kaola.product.mapper")
+@SpringBootApplication
+@EnableFeignClients
+@MapperScan({"com.kaola.product.repository", "com.kaola.product.mapper"})
 public class ProductServiceApplication {
 
     public static void main(String[] args) {

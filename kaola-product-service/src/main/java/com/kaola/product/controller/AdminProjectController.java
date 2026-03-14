@@ -3,12 +3,12 @@ package com.kaola.product.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.kaola.common.core.dto.PageVO;
-import com.kaola.common.core.dto.Result;
+import com.kaola.product.dto.Result;
+import com.kaola.product.model.entity.Category;
 import com.kaola.product.model.entity.Project;
-import com.kaola.product.mapper.ProjectMapper;
-import com.kaola.product.mapper.CategoryMapper;
-import com.kaola.product.model.entity.ProjectCategory;
+import com.kaola.product.model.vo.PageVO;
+import com.kaola.product.repository.CategoryRepository;
+import com.kaola.product.repository.ProjectRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminProjectController {
 
-    private final ProjectMapper projectRepository;
-    private final CategoryMapper categoryRepository;
+    private final ProjectRepository projectRepository;
+    private final CategoryRepository categoryRepository;
 
     /**
      * 分页查询项目列表
@@ -69,9 +69,9 @@ public class AdminProjectController {
         IPage<Project> pageResult = projectRepository.selectPage(page, wrapper);
 
         // 获取所有分类信息，用于填充categoryName
-        List<ProjectCategory> allCategories = categoryRepository.selectList(null);
+        List<Category> allCategories = categoryRepository.selectList(null);
         Map<Long, String> categoryMap = allCategories.stream()
-                .collect(Collectors.toMap(ProjectCategory::getId, ProjectCategory::getName));
+                .collect(Collectors.toMap(Category::getId, Category::getName));
 
         // 填充前端需要的额外字段
         pageResult.getRecords().forEach(project -> {
@@ -88,13 +88,7 @@ public class AdminProjectController {
             }
         });
 
-        // Convert IPage to PageVO
-        PageVO<Project> pageVO = new PageVO<>();
-        pageVO.setRecords(pageResult.getRecords());
-        pageVO.setTotal(pageResult.getTotal());
-        pageVO.setCurrent(pageResult.getCurrent());
-        pageVO.setPageSize(pageResult.getSize());
-        pageVO.setPages(pageResult.getPages());
+        PageVO<Project> pageVO = PageVO.of(pageResult);
 
         return Result.success(pageVO);
     }
@@ -119,7 +113,7 @@ public class AdminProjectController {
 
         // 设置分类名称
         if (project.getCategoryId() != null) {
-            ProjectCategory category = categoryRepository.selectById(project.getCategoryId());
+            Category category = categoryRepository.selectById(project.getCategoryId());
             if (category != null) {
                 project.setCategoryName(category.getName());
             }

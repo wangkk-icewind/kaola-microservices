@@ -17,6 +17,7 @@ import com.kaola.masseur.service.MasseurService;
 // import com.kaola.common.core.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -157,17 +158,24 @@ public class MasseurServiceImpl implements MasseurService {
         return true;
     }
 
+    @Cacheable(value = "masseurs", key = "'store:' + (#storeId != null ? #storeId : 'all')", unless = "#result == null || #result.isEmpty()")
     @Override
     public List<MasseurVO> getMasseursByStore(Long storeId) {
-        log.info("获取门店技师列表, storeId: {}", storeId);
+        log.info("获取门店技师列表 - 从数据库查询, storeId: {}", storeId);
 
-        // 查询所有可用技师（status=1, deleted=0）
-        LambdaQueryWrapper<Masseur> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Masseur::getStatus, 1)
-                    .eq(Masseur::getDeleted, 0)
-                    .orderByDesc(Masseur::getRating);
+        List<Masseur> masseurs;
+        if (storeId != null) {
+            // 根据门店ID查询技师
+            masseurs = masseurMapper.findByStoreId(storeId);
+        } else {
+            // 查询所有可用技师（status=1, deleted=0）
+            LambdaQueryWrapper<Masseur> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(Masseur::getStatus, 1)
+                        .eq(Masseur::getDeleted, 0)
+                        .orderByDesc(Masseur::getRating);
+            masseurs = masseurMapper.selectList(queryWrapper);
+        }
 
-        List<Masseur> masseurs = masseurMapper.selectList(queryWrapper);
         return masseurs.stream().map(this::convertToVO).collect(Collectors.toList());
     }
 
@@ -175,8 +183,31 @@ public class MasseurServiceImpl implements MasseurService {
     public List<MasseurVO> getMasseursBySymptom(Long symptomId) {
         log.info("按症状获取技师, symptomId: {}", symptomId);
 
-        // 暂时返回所有技师，后续可通过关联表查询
-        return getMasseursByStore(null);
+        if (symptomId == null) {
+            return getMasseursByStore(null);
+        }
+
+        // 通过项目分类ID查询技师（JOIN masseur_project和t_project表）
+        List<Masseur> masseurs = masseurMapper.findByCategoryId(symptomId);
+        return masseurs.stream().map(this::convertToVO).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<MasseurVO> getMasseursByStoreAndSymptom(Long storeId, Long symptomId) {
+        log.info("根据门店和症状获取技师, storeId: {}, symptomId: {}", storeId, symptomId);
+
+        if (storeId == null || symptomId == null) {
+            // 如果任一参数为空，回退到单参数查询
+            if (symptomId != null) {
+                return getMasseursBySymptom(symptomId);
+            } else {
+                return getMasseursByStore(storeId);
+            }
+        }
+
+        // 同时根据门店ID和项目分类ID查询技师
+        List<Masseur> masseurs = masseurMapper.findByStoreIdAndCategoryId(storeId, symptomId);
+        return masseurs.stream().map(this::convertToVO).collect(Collectors.toList());
     }
 
     // TODO: Cross-service dependency - Scheduling should be handled by scheduling service

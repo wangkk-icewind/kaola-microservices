@@ -49,4 +49,9 @@ public class MasseurDTO implements Serializable {
      * 银行账户信息
      */
     private String bankAccount;
+
+    /**
+     * 擅长项目ID列表
+     */
+    private List<Long> projectIds;
 }

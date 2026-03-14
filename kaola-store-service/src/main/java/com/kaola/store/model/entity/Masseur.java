@@ -27,6 +27,12 @@ public class Masseur extends BaseEntity {
     private Long userId;
 
     /**
+     * 所属门店ID
+     */
+    @TableField("store_id")
+    private Long storeId;
+
+    /**
      * 技师姓名
      */
     @TableField("name")

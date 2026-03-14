@@ -90,6 +90,36 @@ public class Order extends BaseEntity {
     private LocalTime appointmentTime;
 
     /**
+     * 订单类型 (SERVICE-服务订单 PRODUCT-商品订单)
+     */
+    @TableField("order_type")
+    private String orderType;
+
+    /**
+     * 收货人姓名 (商品订单使用)
+     */
+    @TableField("receiver_name")
+    private String receiverName;
+
+    /**
+     * 收货人电话 (商品订单使用)
+     */
+    @TableField("receiver_phone")
+    private String receiverPhone;
+
+    /**
+     * 收货地址 (商品订单使用)
+     */
+    @TableField("receiver_address")
+    private String receiverAddress;
+
+    /**
+     * 物流单号 (商品订单使用)
+     */
+    @TableField("tracking_no")
+    private String trackingNo;
+
+    /**
      * 备注
      */
     @TableField("remark")

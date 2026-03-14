@@ -28,19 +28,43 @@ public class OrderItem extends BaseEntity {
     private Long orderId;
 
     /**
-     * 技师ID
+     * 订单项类型 (SERVICE-服务项 PRODUCT-商品项)
+     */
+    @TableField("item_type")
+    private String itemType;
+
+    /**
+     * 技师ID (服务订单使用)
      */
     @TableField("masseur_id")
     private Long masseurId;
 
     /**
-     * 项目ID
+     * 项目ID (服务订单使用)
      */
     @TableField("project_id")
     private Long projectId;
 
     /**
-     * 项目单价
+     * 商品ID (商品订单使用)
+     */
+    @TableField("product_id")
+    private Long productId;
+
+    /**
+     * 商品名称 (冗余存储，防止商品删除后无法查看)
+     */
+    @TableField("product_name")
+    private String productName;
+
+    /**
+     * 数量 (商品订单使用)
+     */
+    @TableField("quantity")
+    private Integer quantity;
+
+    /**
+     * 单价
      */
     @TableField("price")
     private BigDecimal price;

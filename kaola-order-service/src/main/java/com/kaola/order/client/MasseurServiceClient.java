@@ -10,7 +10,11 @@ import org.springframework.web.bind.annotation.PathVariable;
  *
  * @author Kaola Team
  */
-@FeignClient(name = "kaola-masseur-service", url = "http://localhost:8084")
+@FeignClient(
+    name = "kaola-masseur-service",
+    url = "http://localhost:8084",
+    fallbackFactory = MasseurServiceClientFallbackFactory.class
+)
 public interface MasseurServiceClient {
 
     /**

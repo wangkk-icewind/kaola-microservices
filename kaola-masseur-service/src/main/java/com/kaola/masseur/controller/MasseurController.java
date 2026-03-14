@@ -4,6 +4,7 @@ import com.kaola.common.core.dto.Result;
 import com.kaola.masseur.model.dto.MasseurDTO;
 import com.kaola.masseur.model.vo.MasseurVO;
 import com.kaola.masseur.service.MasseurService;
+import com.kaola.masseur.service.MasseurProjectService;
 // TODO: Cross-service dependency - LoginDTO should be in common-core
 // import com.kaola.common.core.dto.LoginDTO;
 // TODO: Cross-service dependency - LoginVO should be in common-core
@@ -45,6 +46,7 @@ import java.util.List;
 public class MasseurController {
 
     private final MasseurService masseurService;
+    private final MasseurProjectService masseurProjectService;
     // TODO: Cross-service dependency - EarningService should be accessed via OpenFeign from kaola-earning-service
     // private final EarningService earningService;
     // TODO: Cross-service dependency - ScheduleService should be accessed via OpenFeign from kaola-schedule-service
@@ -126,7 +128,11 @@ public class MasseurController {
             @Parameter(description = "症状ID")
             @RequestParam(required = false) Long symptomId) {
         List<MasseurVO> masseurList;
-        if (symptomId != null) {
+
+        // 如果同时提供了门店ID和症状ID，使用组合查询
+        if (storeId != null && symptomId != null) {
+            masseurList = masseurService.getMasseursByStoreAndSymptom(storeId, symptomId);
+        } else if (symptomId != null) {
             masseurList = masseurService.getMasseursBySymptom(symptomId);
         } else if (storeId != null) {
             masseurList = masseurService.getMasseursByStore(storeId);
@@ -240,4 +246,55 @@ public class MasseurController {
     //     List<ScheduleVO> scheduleList = scheduleService.getScheduleList(masseurId, startDate, endDate);
     //     return Result.success(scheduleList);
     // }
+
+    /**
+     * 批量设置技师的项目列表
+     *
+     * @param masseurId  技师ID
+     * @param projectIds 项目ID列表
+     * @return 操作结果
+     */
+    @Operation(summary = "设置技师项目", description = "批量设置技师的擅长项目列表（后台管理使用）")
+    @PostMapping("/{masseurId}/projects")
+    public Result<Boolean> setMasseurProjects(
+            @Parameter(description = "技师ID", required = true)
+            @PathVariable @NotNull(message = "技师ID不能为空") Long masseurId,
+            @Parameter(description = "项目ID列表", required = true)
+            @RequestBody @NotNull(message = "项目ID列表不能为空") List<Long> projectIds) {
+        masseurProjectService.setMasseurProjects(masseurId, projectIds);
+        return Result.success(true);
+    }
+
+    /**
+     * 获取技师的项目ID列表
+     *
+     * @param masseurId 技师ID
+     * @return 项目ID列表
+     */
+    @Operation(summary = "获取技师项目", description = "获取指定技师的擅长项目ID列表")
+    @GetMapping("/{masseurId}/projects")
+    public Result<List<Long>> getMasseurProjects(
+            @Parameter(description = "技师ID", required = true)
+            @PathVariable @NotNull(message = "技师ID不能为空") Long masseurId) {
+        List<Long> projectIds = masseurProjectService.getMasseurProjectIds(masseurId);
+        return Result.success(projectIds);
+    }
+
+    /**
+     * 删除技师的项目关联
+     *
+     * @param masseurId 技师ID
+     * @param projectId 项目ID
+     * @return 操作结果
+     */
+    @Operation(summary = "删除技师项目", description = "删除技师的项目关联")
+    @DeleteMapping("/{masseurId}/projects/{projectId}")
+    public Result<Boolean> removeMasseurProject(
+            @Parameter(description = "技师ID", required = true)
+            @PathVariable @NotNull(message = "技师ID不能为空") Long masseurId,
+            @Parameter(description = "项目ID", required = true)
+            @PathVariable @NotNull(message = "项目ID不能为空") Long projectId) {
+        masseurProjectService.removeMasseurProject(masseurId, projectId);
+        return Result.success(true);
+    }
 }

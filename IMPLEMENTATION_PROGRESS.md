@@ -1650,4 +1650,326 @@ curl --noproxy '*' "http://localhost:8090/api/admin/role/list?current=1&pageSize
 
 ---
 
-**最后更新**: 2025-12-14 18:35
+## Phase 7: Miniprogram User Testing 🚧 进行中
+**开始时间**: 2025-12-14
+
+### 7.1 测试目标
+
+对考拉推拿用户端小程序（miniprogram-user）进行全面功能测试，验证所有页面和业务流程的可用性和与后端微服务的集成。
+
+### 7.2 测试环境
+
+**小程序信息**:
+- 项目路径: `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/`
+- 框架: 微信小程序原生框架
+- 后端服务: 考拉微服务架构（13个微服务）
+- API网关: http://localhost:8090
+
+**测试工具**:
+- 微信开发者工具
+- 手动测试 + 截图记录
+
+### 7.3 页面清单（共15个页面）
+
+根据 `app.json` 配置，需要测试以下页面：
+
+#### 7.3.1 TabBar页面（3个）
+1. ✅ **首页** - `pages/index/index`
+   - 功能: 当前预约提醒、门店促销、附近门店、城市切换、症状选择、推荐技师
+
+2. ⏳ **好礼** - `pages/promotion/index/index`
+   - 功能: 促销活动列表、优惠券领取
+
+3. ⏳ **我的** - `pages/mine/index/index`
+   - 功能: 个人信息、订单历史、优惠券、设置
+
+#### 7.3.2 预约流程页面（6个）
+4. ⏳ **门店列表** - `pages/store/list/index`
+   - 功能: 门店列表、筛选、定位、详情入口
+
+5. ⏳ **门店详情** - `pages/store/detail/index`
+   - 功能: 门店信息、技师列表、预约入口
+
+6. ⏳ **症状选择** - `pages/symptom/select/index`
+   - 功能: 症状分类选择、项目推荐
+
+7. ⏳ **技师详情** - `pages/masseur/detail/index`
+   - 功能: 技师信息、服务项目、评价、预约
+
+8. ⏳ **购物车** - `pages/cart/index/index`
+   - 功能: 查看选中项目、修改数量、结算
+
+9. ⏳ **确认订单** - `pages/order/confirm/index`
+   - 功能: 订单信息确认、支付方式选择、提交订单
+
+#### 7.3.3 订单管理页面（2个）
+10. ⏳ **订单列表** - `pages/order/list/index`
+    - 功能: 订单历史、筛选、状态查看
+
+11. ⏳ **订单详情** - `pages/order/detail/index`
+    - 功能: 订单详细信息、改约、取消、签到码
+
+#### 7.3.4 售后页面（3个）
+12. ⏳ **优惠券** - `pages/coupon/index/index`
+    - 功能: 我的优惠券、使用记录
+
+13. ⏳ **创建评价** - `pages/review/create/index`
+    - 功能: 项目/技师/门店多维评分、评价提交
+
+14. ⏳ **创建投诉** - `pages/complaint/create/index`
+    - 功能: 投诉类型选择、内容填写、提交
+
+#### 7.3.5 用户管理页面（1个）
+15. ⏳ **登录** - `pages/login/login`
+    - 功能: 微信授权登录、手机号绑定
+
+### 7.4 核心业务流程测试
+
+#### 流程A: 门店预约流程
+```
+首页 → 选择门店 → 门店详情 → 选择技师 → 技师详情 →
+选择时间 → 选择症状 → 选择项目 → 购物车 → 确认订单 →
+支付 → 订单详情
+```
+
+#### 流程B: 技师预约流程
+```
+首页 → 推荐技师 → 技师详情 → 选择时间 → 选择项目 →
+购物车 → 确认订单 → 支付 → 订单详情
+```
+
+#### 流程C: 订单售后流程
+```
+订单列表 → 订单详情 → [改约/取消/评价/投诉]
+```
+
+### 7.5 API集成测试点
+
+验证小程序与后端微服务的集成：
+
+| API端点 | 服务 | 测试页面 |
+|---------|------|----------|
+| `/api/store/**` | store-service:8083 | 门店列表、门店详情 |
+| `/api/masseur/**` | masseur-service:8084 | 技师详情 |
+| `/api/project/**` | product-service:8085 | 症状选择、项目列表 |
+| `/api/order/**` | order-service:8086 | 购物车、订单确认、订单列表 |
+| `/api/schedule/**` | schedule-service:8091 | 时间选择 |
+| `/api/promotion/**` | marketing-service:8092 | 好礼页面 |
+| `/api/coupon/**` | marketing-service:8092 | 优惠券页面 |
+| `/api/review/**` | review-service:8093 | 评价创建 |
+| `/api/complaint/**` | complaint-service:8094 | 投诉创建 |
+
+### 7.6 测试执行计划
+
+**步骤**:
+1. ✅ 确认后端所有微服务运行正常
+2. ⏳ 启动微信开发者工具，打开miniprogram-user项目
+3. ⏳ 配置API地址（确保指向本地网关 http://localhost:8090）
+4. ⏳ 按页面清单逐个测试
+5. ⏳ 测试完整业务流程（流程A、B、C）
+6. ⏳ 记录测试结果和截图
+7. ⏳ 汇总测试报告
+
+### 7.7 测试结果
+
+**测试状态**: ✅ API集成测试完成
+
+**后端服务状态检查**:
+- ✅ Gateway (8090) - 运行正常
+- ✅ User Service (8082) - 运行正常
+- ✅ Store Service (8083) - 运行正常
+- ✅ Masseur Service (8084) - 运行正常
+- ✅ Product Service (8085) - 运行正常
+- ✅ Order Service (8086) - 运行正常
+- ✅ Schedule Service (8091) - 运行正常
+- ✅ Marketing Service (8092) - 运行正常
+- ✅ Review Service (8093) - 运行正常
+- ✅ Complaint Service (8094) - 运行正常
+
+**API集成测试结果**:
+
+#### ✅ Store Service (门店服务)
+| API端点 | 测试结果 | 说明 |
+|---------|----------|------|
+| GET /api/store/{id} | ✅ 通过 | 成功返回门店详情 |
+| GET /api/store/nearby | ❌ 失败 | 400 Bad Request - 需要检查参数要求 |
+
+#### ✅ Masseur Service (技师服务)
+| API端点 | 测试结果 | 说明 |
+|---------|----------|------|
+| GET /api/masseur/list | ✅ 通过 | 成功返回6名技师列表 |
+| GET /api/masseur/detail/{id} | ✅ 通过 | 成功返回技师详情及13个服务项目 |
+
+#### ✅ Product Service (项目服务)
+| API端点 | 测试结果 | 说明 |
+|---------|----------|------|
+| GET /api/project/categories | ✅ 通过 | 成功返回6个症状分类 |
+| GET /api/project/list | ✅ 通过 | 成功返回指定分类的3个项目 |
+
+#### ✅ Marketing Service (营销服务)
+| API端点 | 测试结果 | 说明 |
+|---------|----------|------|
+| GET /api/promotion/list | ✅ 通过 | 成功返回空数组（无促销数据） |
+| GET /api/coupon/list | ❌ 失败 | 404 Not Found - 需要检查正确端点 |
+
+#### ✅ Complaint Service (投诉服务)
+| API端点 | 测试结果 | 说明 |
+|---------|----------|------|
+| GET /api/complaint/list | ✅ 通过 | 成功返回分页数据（无投诉记录） |
+
+**测试覆盖率**:
+- 已测试核心API: 9个
+- 测试通过: 7个 (78%)
+- 测试失败: 2个 (22%)
+
+**发现的问题**:
+
+#### ❌ 问题1: Store Nearby API 400错误
+- **端点**: `GET /api/store/nearby`
+- **错误**: 400 Bad Request
+- **可能原因**: 缺少必需参数或参数格式错误
+- **影响范围**: 首页附近门店列表功能
+- **优先级**: P1 (高) - 影响首页核心功能
+
+#### ❌ 问题2: Coupon List API 404错误
+- **端点**: `GET /api/coupon/list`
+- **错误**: 404 Not Found
+- **可能原因**: 端点路径错误，miniprogram API使用 `/coupons` 而非 `/coupon/list`
+- **影响范围**: 优惠券列表页面
+- **优先级**: P2 (中) - 影响优惠券功能
+
+**测试数据质量**:
+- ✅ 技师数据: 完整，包含头像、专长、评分等
+- ✅ 项目数据: 完整，包含价格、时长、描述
+- ✅ 症状分类: 完整，包含图标和排序
+- ⚠️ 促销数据: 空数据（测试环境可能未配置）
+- ⚠️ 投诉数据: 空数据（正常）
+
+**WeChat开发者工具状态**:
+- 已启动微信开发者工具
+- 小程序配置API地址: `http://localhost:8090/api`
+- 建议用户在微信开发者工具中进行手动UI测试
+
+**测试截图保存位置**: `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/test/`
+
+**下一步建议**:
+1. 修复 `/api/store/nearby` API的参数问题
+2. 确认并修正优惠券API的正确端点
+3. 在微信开发者工具中进行完整的UI交互测试
+4. 测试完整预约流程（流程A和流程B）
+5. 测试订单创建和支付流程
+
+---
+
+**最后更新**: 2025-12-14 19:10
+
+## Phase 5: 小程序UI改造与商品系统 🔄 进行中
+**开始时间**: 2025-12-16
+**预计完成**: 2025-12-20
+
+### 5.1 项目概述
+根据新UI设计和PRD需求(/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/prd.md)，对考拉推拿小程序进行全面UI改造和功能扩展，主要包括：
+1. 首页UI全面改造
+2. 商品系统（项目礼卡、电子礼卡、实物商品）
+3. 好礼商城页面
+4. 技师预约流程优化  
+5. 个人中心页面升级
+
+**UI设计参考**: `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/*.png`
+
+---
+
+### 5.2 实施计划分阶段
+
+#### 阶段1: 首页UI改造 (高优先级) 🔄 进行中
+**目标**: 提升首页用户体验，优化预约入口
+
+**任务清单**:
+- [ ] 1.1 添加优惠预约轮播图（数据来源：促销活动API）
+- [ ] 1.2 门店列表样式更新（参考UI设计图 indexpage-top.png）
+- [ ] 1.3 技师列表纵向展示（最多20个，参考 indexpage-down.png）
+
+**UI参考**:
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/indexpage-top.png`
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/indexpage-down.png`
+
+**涉及文件**:
+- `pages/index/index.wxml`
+- `pages/index/index.wxss`
+- `pages/index/index.js`
+
+---
+
+#### 阶段2: 商品系统后端 + 好礼页面 (中优先级) ⏳ 待开始
+**目标**: 构建线上商城能力，支持礼卡和实物商品销售
+
+**后端任务**:
+- [ ] 2.1 创建商品(Product)数据库表和实体
+  - 商品类型：项目礼卡、电子礼卡、实物商品
+  - 字段：type, name, price, images, description, stock, status
+- [ ] 2.2 创建商品API接口
+  - GET `/api/product/list` - 商品列表（支持分类筛选）
+  - GET `/api/product/detail/{id}` - 商品详情
+  - 商品分类查询
+- [ ] 2.3 扩展订单系统支持商品订单
+  - 订单类型扩展：服务订单 vs 商品订单  
+  - 收货地址管理
+
+**前端任务**:
+- [ ] 2.4 改造好礼页面
+  - 常乐礼卡区块（项目礼卡、电子礼卡、实体礼卡）
+  - 常乐周边区块（实物商品展示）
+- [ ] 2.5 创建电子礼卡详情页
+- [ ] 2.6 创建项目礼卡详情页
+- [ ] 2.7 创建商品详情页
+
+**UI参考**:
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/好礼页面.png`
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/电子礼卡.png`
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/礼卡详情.png`
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/商品详情.png`
+
+---
+
+#### 阶段3: 技师预约流程优化 (中优先级) ⏳ 待开始
+**目标**: 优化技师选择和预约体验
+
+**任务清单**:
+- [ ] 3.1 创建技师预约页面（左侧分类导航，右侧技师列表）
+  - 左侧：项目分类（来自"项目分类"API）
+  - 右侧：技师列表（按分类筛选，展示擅长技能）
+  - 技师下展开可预约项目
+- [ ] 3.2 更新技师详情页样式
+  - 头像、姓名、等级、评分、订单量
+  - 技师简介、擅长技能
+  - 用户评价列表
+
+**UI参考**:
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/技师预约.png`
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/技师详情.png`
+
+---
+
+#### 阶段4: 个人中心及其他优化 (低优先级) ⏳ 待开始
+**目标**: 完善用户个人中心功能
+
+**任务清单**:
+- [ ] 4.1 改造"我的"页面
+  - 添加"我的好礼订单"入口
+  - 优化布局和UI样式
+- [ ] 4.2 更新订单确认页样式
+  - 严格遵循UI设计图
+  - 优化支付方式选择
+
+**UI参考**:
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/我的页面.png`
+- `/Users/icewind/Documents/workspaces/kaola/miniprogram-user/newUI/订单确认.png`
+
+---
+
+### 5.3 阶段1详细执行记录 🔄
+
+#### 5.3.1 任务1: 添加优惠预约轮播图
+**状态**: 🔄 进行中
+**开始时间**: 2025-12-16
+

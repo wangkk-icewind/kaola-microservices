@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kaola.common.core.dto.Result;
 import com.kaola.complaint.model.entity.Complaint;
-import com.kaola.common.core.dto.PageVO;
+import com.kaola.complaint.dto.PageVO;
 import com.kaola.complaint.mapper.ComplaintMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

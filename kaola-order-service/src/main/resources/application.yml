@@ -5,6 +5,9 @@ spring:
   application:
     name: kaola-order-service
 
+  main:
+    allow-bean-definition-overriding: true
+
   config:
     import: optional:nacos:localhost:8848
 
@@ -19,15 +22,26 @@ spring:
         namespace: public
         group: DEFAULT_GROUP
         file-extension: yml
+    openfeign:
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          default:
+            connectTimeout: 5000
+            readTimeout: 5000
+
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/kaola_massage?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: root
     password: kaola123456
+
   redis:
     host: localhost
     port: 6379
     database: 0
+    timeout: 3000ms
 
 mybatis-plus:
   type-aliases-package: com.kaola.order.model.entity

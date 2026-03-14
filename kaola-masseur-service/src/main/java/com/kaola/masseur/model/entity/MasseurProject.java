@@ -1,24 +1,27 @@
 package com.kaola.masseur.model.entity;
 
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.kaola.common.model.BaseEntity;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
-import java.math.BigDecimal;
+import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
- * 技师-服务项目关联实体
+ * 技师-项目关联实体
  *
  * @author Kaola Team
  */
 @Data
-@EqualsAndHashCode(callSuper = true)
-@TableName("t_masseur_project")
-public class MasseurProject extends BaseEntity {
+@TableName("masseur_project")
+public class MasseurProject implements Serializable {
 
     private static final long serialVersionUID = 1L;
+
+    /**
+     * 主键ID
+     */
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
 
     /**
      * 技师ID
@@ -27,20 +30,20 @@ public class MasseurProject extends BaseEntity {
     private Long masseurId;
 
     /**
-     * 服务项目ID
+     * 项目ID (关联product表)
      */
     @TableField("project_id")
     private Long projectId;
 
     /**
-     * 技师个人定价（可覆盖项目默认价格）
+     * 创建时间
      */
-    @TableField("price")
-    private BigDecimal price;
+    @TableField(value = "created_at")
+    private LocalDateTime createdAt;
 
     /**
-     * 状态：0-禁用 1-启用
+     * 更新时间
      */
-    @TableField("status")
-    private Integer status;
+    @TableField(value = "updated_at")
+    private LocalDateTime updatedAt;
 }

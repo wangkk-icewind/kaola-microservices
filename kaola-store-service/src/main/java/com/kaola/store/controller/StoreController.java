@@ -32,21 +32,33 @@ public class StoreController {
     /**
      * 获取附近门店
      *
-     * @param lat  纬度
-     * @param lng  经度
+     * @param latitude  纬度
+     * @param longitude  经度
      * @param city 城市
      * @return 门店列表
      */
     @Operation(summary = "获取附近门店", description = "根据经纬度获取附近门店列表")
     @GetMapping("/nearby")
     public Result<List<StoreVO>> getNearbyStores(
-            @Parameter(description = "纬度", required = true)
-            @RequestParam @NotNull(message = "纬度不能为空") BigDecimal lat,
-            @Parameter(description = "经度", required = true)
-            @RequestParam @NotNull(message = "经度不能为空") BigDecimal lng,
+            @Parameter(description = "纬度", required = false)
+            @RequestParam(required = false) BigDecimal latitude,
+            @Parameter(description = "经度", required = false)
+            @RequestParam(required = false) BigDecimal longitude,
+            @Parameter(description = "纬度(旧参数名，兼容)", required = false)
+            @RequestParam(required = false) BigDecimal lat,
+            @Parameter(description = "经度(旧参数名，兼容)", required = false)
+            @RequestParam(required = false) BigDecimal lng,
             @Parameter(description = "城市")
             @RequestParam(required = false) String city) {
-        List<StoreVO> stores = storeService.getNearbyStores(lat, lng, city);
+        // 兼容新旧参数名
+        BigDecimal finalLat = latitude != null ? latitude : lat;
+        BigDecimal finalLng = longitude != null ? longitude : lng;
+
+        if (finalLat == null || finalLng == null) {
+            return Result.error("纬度和经度不能为空");
+        }
+
+        List<StoreVO> stores = storeService.getNearbyStores(finalLat, finalLng, city);
         return Result.success(stores);
     }
 

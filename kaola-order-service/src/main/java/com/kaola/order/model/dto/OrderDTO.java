@@ -48,4 +48,24 @@ public class OrderDTO implements Serializable {
      * 预约时间 (HH:mm)
      */
     private String appointmentTime;
+
+    /**
+     * 订单类型 (SERVICE-服务订单 PRODUCT-商品订单)
+     */
+    private String orderType;
+
+    /**
+     * 收货人姓名 (商品订单使用)
+     */
+    private String receiverName;
+
+    /**
+     * 收货人电话 (商品订单使用)
+     */
+    private String receiverPhone;
+
+    /**
+     * 收货地址 (商品订单使用)
+     */
+    private String receiverAddress;
 }

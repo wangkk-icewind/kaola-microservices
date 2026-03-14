@@ -3,10 +3,10 @@ package com.kaola.product.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.kaola.common.core.dto.PageVO;
-import com.kaola.common.core.dto.Result;
+import com.kaola.product.dto.Result;
 import com.kaola.product.model.entity.ProjectCategory;
-import com.kaola.product.mapper.CategoryMapper;
+import com.kaola.product.model.vo.PageVO;
+import com.kaola.product.repository.ProjectCategoryRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CategoryController {
 
-    private final CategoryMapper categoryMapper;
+    private final ProjectCategoryRepository projectCategoryRepository;
 
     /**
      * 分页查询分类列表
@@ -44,22 +44,16 @@ public class CategoryController {
         Page<ProjectCategory> page = new Page<>(current, pageSize);
         LambdaQueryWrapper<ProjectCategory> wrapper = new LambdaQueryWrapper<>();
 
+        wrapper.eq(ProjectCategory::getDeleted, 0);
+
         if (name != null && !name.trim().isEmpty()) {
             wrapper.like(ProjectCategory::getName, name.trim());
         }
 
-        wrapper.orderByAsc(ProjectCategory::getSort)
-               .orderByDesc(ProjectCategory::getCreateTime);
+        wrapper.orderByAsc(ProjectCategory::getSort);
 
-        IPage<ProjectCategory> pageResult = categoryMapper.selectPage(page, wrapper);
-
-        // Convert IPage to PageVO
-        PageVO<ProjectCategory> pageVO = new PageVO<>();
-        pageVO.setRecords(pageResult.getRecords());
-        pageVO.setTotal(pageResult.getTotal());
-        pageVO.setCurrent(pageResult.getCurrent());
-        pageVO.setPageSize(pageResult.getSize());
-        pageVO.setPages(pageResult.getPages());
+        IPage<ProjectCategory> pageResult = projectCategoryRepository.selectPage(page, wrapper);
+        PageVO<ProjectCategory> pageVO = PageVO.of(pageResult);
 
         return Result.success(pageVO);
     }
@@ -73,10 +67,11 @@ public class CategoryController {
         log.info("获取所有分类");
 
         LambdaQueryWrapper<ProjectCategory> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ProjectCategory::getStatus, 1)
+        wrapper.eq(ProjectCategory::getDeleted, 0)
+               .eq(ProjectCategory::getStatus, 1)
                .orderByAsc(ProjectCategory::getSort);
 
-        List<ProjectCategory> categories = categoryMapper.selectList(wrapper);
+        List<ProjectCategory> categories = projectCategoryRepository.selectList(wrapper);
         return Result.success(categories);
     }
 
@@ -91,11 +86,12 @@ public class CategoryController {
         if (category.getStatus() == null) {
             category.setStatus(1);
         }
+
         if (category.getSort() == null) {
             category.setSort(0);
         }
 
-        int rows = categoryMapper.insert(category);
+        int rows = projectCategoryRepository.insert(category);
         return rows > 0 ? Result.success(true) : Result.error("创建失败");
     }
 
@@ -111,12 +107,12 @@ public class CategoryController {
             return Result.error("分类ID不能为空");
         }
 
-        ProjectCategory existing = categoryMapper.selectById(category.getId());
+        ProjectCategory existing = projectCategoryRepository.selectById(category.getId());
         if (existing == null || existing.getDeleted() == 1) {
             return Result.error("分类不存在");
         }
 
-        int rows = categoryMapper.updateById(category);
+        int rows = projectCategoryRepository.updateById(category);
         return rows > 0 ? Result.success(true) : Result.error("更新失败");
     }
 
@@ -128,13 +124,13 @@ public class CategoryController {
     public Result<Boolean> deleteCategory(@PathVariable Long id) {
         log.info("删除分类, id: {}", id);
 
-        ProjectCategory category = categoryMapper.selectById(id);
-        if (category == null) {
+        ProjectCategory category = projectCategoryRepository.selectById(id);
+        if (category == null || category.getDeleted() == 1) {
             return Result.error("分类不存在");
         }
 
-        // MyBatis Plus自动处理逻辑删除(@TableLogic)
-        int rows = categoryMapper.deleteById(id);
+        category.setDeleted(1);
+        int rows = projectCategoryRepository.updateById(category);
         return rows > 0 ? Result.success(true) : Result.error("删除失败");
     }
 }

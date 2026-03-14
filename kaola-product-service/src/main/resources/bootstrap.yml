@@ -1,9 +1,8 @@
 spring:
   application:
-
+    name: kaola-product-service
   config:
     import: optional:nacos:
-    name: kaola-product-service
   cloud:
     nacos:
       discovery:

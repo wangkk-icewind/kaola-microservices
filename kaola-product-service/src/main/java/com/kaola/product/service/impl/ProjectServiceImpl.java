@@ -1,14 +1,15 @@
 package com.kaola.product.service.impl;
 
-import com.kaola.product.model.vo.CategoryVO;
-import com.kaola.product.model.vo.PriceCalculationVO;
-
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kaola.product.client.MasseurServiceClient;
+import com.kaola.product.dto.Result;
 import com.kaola.product.model.entity.Project;
 import com.kaola.product.model.entity.ProjectCategory;
+import com.kaola.product.model.vo.CategoryVO;
+import com.kaola.product.model.vo.PriceCalculationVO;
 import com.kaola.product.model.vo.ProjectVO;
-import com.kaola.product.mapper.ProjectCategoryMapper;
-import com.kaola.product.mapper.ProjectMapper;
+import com.kaola.product.repository.ProjectCategoryRepository;
+import com.kaola.product.repository.ProjectRepository;
 import com.kaola.product.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,8 +32,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProjectServiceImpl implements ProjectService {
 
-    private final ProjectCategoryMapper categoryRepository;
-    private final ProjectMapper projectRepository;
+    private final ProjectCategoryRepository categoryRepository;
+    private final ProjectRepository projectRepository;
+    private final MasseurServiceClient masseurServiceClient;
 
     @Override
     public List<CategoryVO> getCategories() {
@@ -64,8 +67,33 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     public List<ProjectVO> getProjectsByMasseur(Long masseurId) {
         log.info("获取技师的项目, masseurId: {}", masseurId);
-        // 返回所有项目，后续可通过关联表查询
-        return getProjectsByCategory(null);
+
+        try {
+            // 调用技师服务获取技师的项目ID列表
+            Result<List<Long>> result = masseurServiceClient.getMasseurProjects(masseurId);
+
+            if (result == null || result.getData() == null || result.getData().isEmpty()) {
+                log.warn("技师{}没有关联的项目", masseurId);
+                return Collections.emptyList();
+            }
+
+            List<Long> projectIds = result.getData();
+            log.info("技师{}关联的项目ID列表: {}", masseurId, projectIds);
+
+            // 根据项目ID列表查询项目详情
+            LambdaQueryWrapper<Project> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(Project::getStatus, 1)
+                        .eq(Project::getDeleted, 0)
+                        .in(Project::getId, projectIds);
+
+            List<Project> projects = projectRepository.selectList(queryWrapper);
+            return projects.stream().map(this::convertToProjectVO).collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("获取技师项目列表失败, masseurId: {}", masseurId, e);
+            // 降级处理：返回空列表而不是抛出异常
+            return Collections.emptyList();
+        }
     }
 
     @Override
