@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,8 +33,65 @@ public class PromotionServiceImpl implements PromotionService {
     @Override
     public List<PromotionVO> getActivePromotions(Long storeId) {
         log.info("获取活动促销, storeId: {}", storeId);
-        // TODO: 实现促销活动查询逻辑
-        return new ArrayList<>();
+
+        // 构建查询条件
+        LambdaQueryWrapper<Promotion> wrapper = new LambdaQueryWrapper<>();
+
+        // 状态为启用
+        wrapper.eq(Promotion::getStatus, 1);
+
+        // 当前时间在活动有效期内
+        wrapper.le(Promotion::getStartTime, LocalDateTime.now());
+        wrapper.ge(Promotion::getEndTime, LocalDateTime.now());
+
+        // 如果指定了门店ID，查询该门店的活动或全局活动
+        if (storeId != null) {
+            wrapper.and(w -> w.eq(Promotion::getStoreId, storeId).or().isNull(Promotion::getStoreId));
+        } else {
+            // 只查询全局活动
+            wrapper.isNull(Promotion::getStoreId);
+        }
+
+        // 按创建时间倒序
+        wrapper.orderByDesc(Promotion::getCreateTime);
+
+        // 查询数据库
+        List<Promotion> promotions = promotionMapper.selectList(wrapper);
+
+        // 转换为VO
+        List<PromotionVO> promotionVOList = new ArrayList<>();
+        for (Promotion promotion : promotions) {
+            PromotionVO vo = new PromotionVO();
+            vo.setId(promotion.getId());
+            vo.setName(promotion.getName());
+            vo.setImage(promotion.getImage());
+            vo.setDescription(promotion.getDescription());
+            vo.setLinkUrl(promotion.getLinkUrl());
+            vo.setType(promotion.getType());
+            vo.setStartTime(promotion.getStartTime());
+            vo.setEndTime(promotion.getEndTime());
+            vo.setIsActive(true); // 查询出来的都是活动中的
+
+            // 计算剩余时间
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime endTime = promotion.getEndTime();
+            long days = java.time.Duration.between(now, endTime).toDays();
+            if (days > 0) {
+                vo.setRemainingTime("剩余" + days + "天");
+            } else {
+                long hours = java.time.Duration.between(now, endTime).toHours();
+                if (hours > 0) {
+                    vo.setRemainingTime("剩余" + hours + "小时");
+                } else {
+                    vo.setRemainingTime("即将结束");
+                }
+            }
+
+            promotionVOList.add(vo);
+        }
+
+        log.info("查询到 {} 个活动促销", promotionVOList.size());
+        return promotionVOList;
     }
 
     @Override

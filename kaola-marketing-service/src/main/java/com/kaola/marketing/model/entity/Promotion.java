@@ -27,6 +27,24 @@ public class Promotion extends BaseEntity {
     private String name;
 
     /**
+     * 活动图片URL
+     */
+    @TableField("image")
+    private String image;
+
+    /**
+     * 活动描述
+     */
+    @TableField("description")
+    private String description;
+
+    /**
+     * 跳转链接
+     */
+    @TableField("link_url")
+    private String linkUrl;
+
+    /**
      * 活动类型 (1-满减 2-折扣 3-买赠 4-秒杀)
      */
     @TableField("type")
