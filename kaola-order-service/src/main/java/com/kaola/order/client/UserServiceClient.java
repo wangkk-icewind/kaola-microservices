@@ -25,13 +25,14 @@ public interface UserServiceClient {
     /**
      * 用户信息 VO
      */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     class UserVO {
         private Long id;
         private String nickname;
         private String avatar;
         private String phone;
         private Integer gender;
-        private java.time.LocalDateTime createTime;
+        private String createTime;
 
         // Getters and Setters
         public Long getId() {
@@ -74,11 +75,11 @@ public interface UserServiceClient {
             this.gender = gender;
         }
 
-        public java.time.LocalDateTime getCreateTime() {
+        public String getCreateTime() {
             return createTime;
         }
 
-        public void setCreateTime(java.time.LocalDateTime createTime) {
+        public void setCreateTime(String createTime) {
             this.createTime = createTime;
         }
     }

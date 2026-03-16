@@ -9,13 +9,16 @@ import com.kaola.masseur.model.entity.Masseur;
 import com.kaola.masseur.model.entity.MasseurEarning;
 import com.kaola.masseur.mapper.MasseurMapper;
 import com.kaola.masseur.service.MasseurEarningService;
+import com.kaola.masseur.service.MasseurProjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 管理后台 - 技师管理接口
@@ -31,6 +34,7 @@ public class AdminMasseurController {
 
     private final MasseurMapper masseurMapper;
     private final MasseurEarningService masseurEarningService;
+    private final MasseurProjectService masseurProjectService;
 
     /**
      * 分页查询技师列表
@@ -180,6 +184,31 @@ public class AdminMasseurController {
         masseur.setStatus(request.getStatus());
         int rows = masseurMapper.updateById(masseur);
         return rows > 0 ? Result.success(true) : Result.error("更新失败");
+    }
+
+    /**
+     * 获取技师的项目列表
+     */
+    @Operation(summary = "获取技师项目列表", description = "获取指定技师可服务的项目ID列表")
+    @GetMapping("/{masseurId}/projects")
+    public Result<List<Long>> getMasseurProjects(@PathVariable Long masseurId) {
+        log.info("获取技师项目列表, masseurId: {}", masseurId);
+        List<Long> projectIds = masseurProjectService.getMasseurProjectIds(masseurId);
+        return Result.success(projectIds);
+    }
+
+    /**
+     * 更新技师的项目列表
+     */
+    @Operation(summary = "更新技师项目列表", description = "批量设置技师可服务的项目")
+    @PostMapping("/{masseurId}/projects")
+    public Result<Boolean> updateMasseurProjects(
+            @PathVariable Long masseurId,
+            @RequestBody Map<String, List<Long>> body) {
+        log.info("更新技师项目列表, masseurId: {}", masseurId);
+        List<Long> projectIds = body.getOrDefault("projectIds", Collections.emptyList());
+        masseurProjectService.setMasseurProjects(masseurId, projectIds);
+        return Result.success(true);
     }
 
     /**

@@ -3,6 +3,7 @@ package com.kaola.order.client;
 import com.kaola.common.core.dto.Result;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
@@ -30,6 +31,15 @@ public interface ProductServiceClient {
             @RequestParam(required = false) Long masseurId);
 
     /**
+     * 获取项目详情
+     *
+     * @param id 项目ID
+     * @return 项目详情
+     */
+    @GetMapping("/admin/project/detail/{id}")
+    Result<ProjectVO> getProjectDetail(@PathVariable Long id);
+
+    /**
      * 计算价格
      *
      * @param projectId 项目ID
@@ -50,6 +60,7 @@ public interface ProductServiceClient {
     /**
      * 项目信息 VO
      */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     class ProjectVO {
         private Long id;
         private String name;
@@ -60,7 +71,7 @@ public interface ProductServiceClient {
         private String categoryName;
         private String imageUrl;
         private Integer status;
-        private java.time.LocalDateTime createTime;
+        private String createTime;
 
         // Getters and Setters
         public Long getId() {
@@ -135,11 +146,11 @@ public interface ProductServiceClient {
             this.status = status;
         }
 
-        public java.time.LocalDateTime getCreateTime() {
+        public String getCreateTime() {
             return createTime;
         }
 
-        public void setCreateTime(java.time.LocalDateTime createTime) {
+        public void setCreateTime(String createTime) {
             this.createTime = createTime;
         }
     }

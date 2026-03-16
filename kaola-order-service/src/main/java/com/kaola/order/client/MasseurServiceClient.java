@@ -29,6 +29,7 @@ public interface MasseurServiceClient {
     /**
      * 技师信息 VO
      */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     class MasseurVO {
         private Long id;
         private String name;
@@ -43,7 +44,7 @@ public interface MasseurServiceClient {
         private Integer serviceCount;
         private Long storeId;
         private Integer status;
-        private java.time.LocalDateTime createTime;
+        private String createTime;
 
         // Getters and Setters
         public Long getId() {
@@ -150,11 +151,11 @@ public interface MasseurServiceClient {
             this.status = status;
         }
 
-        public java.time.LocalDateTime getCreateTime() {
+        public String getCreateTime() {
             return createTime;
         }
 
-        public void setCreateTime(java.time.LocalDateTime createTime) {
+        public void setCreateTime(String createTime) {
             this.createTime = createTime;
         }
     }

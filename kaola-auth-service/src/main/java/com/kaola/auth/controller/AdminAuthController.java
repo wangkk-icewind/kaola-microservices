@@ -3,9 +3,11 @@ package com.kaola.auth.controller;
 import com.kaola.auth.model.vo.AdminLoginVO;
 import com.kaola.auth.service.AdminUserService;
 import com.kaola.common.core.dto.Result;
+import com.kaola.common.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +26,7 @@ import java.util.Map;
 public class AdminAuthController {
 
     private final AdminUserService adminUserService;
+    private final JwtUtil jwtUtil;
 
     /**
      * 管理员登录
@@ -60,13 +63,20 @@ public class AdminAuthController {
      */
     @Operation(summary = "获取当前用户信息", description = "获取已登录管理员的信息")
     @GetMapping("/userInfo")
-    public Result<AdminLoginVO> getUserInfo(@RequestHeader(value = "X-Admin-Id", required = false) Long adminId) {
-        if (adminId == null) {
+    public Result<AdminLoginVO> getUserInfo(
+            @RequestHeader(value = "X-Admin-Id", required = false) Long adminId,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        Long userId = adminId;
+        // 若没有 X-Admin-Id，直接从 JWT 解析
+        if (userId == null && StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            userId = jwtUtil.getUserIdFromToken(token);
+        }
+        if (userId == null) {
             return Result.error("未登录");
         }
-        // 简化处理，返回基本信息
         AdminLoginVO vo = new AdminLoginVO();
-        vo.setId(adminId);
+        vo.setId(userId);
         return Result.success(vo);
     }
 }

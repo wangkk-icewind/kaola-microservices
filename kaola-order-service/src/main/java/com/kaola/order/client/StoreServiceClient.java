@@ -25,6 +25,7 @@ public interface StoreServiceClient {
     /**
      * 门店信息 VO
      */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     class StoreVO {
         private Long id;
         private String name;
@@ -37,7 +38,7 @@ public interface StoreServiceClient {
         private String businessHours;
         private String facilities;
         private Integer status;
-        private java.time.LocalDateTime createTime;
+        private String createTime;
 
         // Getters and Setters
         public Long getId() {
@@ -128,11 +129,11 @@ public interface StoreServiceClient {
             this.status = status;
         }
 
-        public java.time.LocalDateTime getCreateTime() {
+        public String getCreateTime() {
             return createTime;
         }
 
-        public void setCreateTime(java.time.LocalDateTime createTime) {
+        public void setCreateTime(String createTime) {
             this.createTime = createTime;
         }
     }

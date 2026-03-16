@@ -21,10 +21,13 @@ import com.kaola.masseur.service.MasseurProjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -51,6 +54,30 @@ public class MasseurController {
     // private final EarningService earningService;
     // TODO: Cross-service dependency - ScheduleService should be accessed via OpenFeign from kaola-schedule-service
     // private final ScheduleService scheduleService;
+
+    /**
+     * 技师登录（开发模式：直接传入技师ID）
+     * 生产环境应替换为微信授权登录流程
+     */
+    @Operation(summary = "技师登录", description = "开发模式：通过技师ID直接登录")
+    @PostMapping("/login")
+    public Result<Map<String, Object>> login(@RequestBody Map<String, Object> params) {
+        Object masseurIdObj = params.get("masseurId");
+        if (masseurIdObj == null) {
+            return Result.error("masseurId不能为空");
+        }
+        Long masseurId = Long.valueOf(masseurIdObj.toString());
+        MasseurVO masseurVO = masseurService.getMasseurInfo(masseurId);
+        if (masseurVO == null) {
+            return Result.error("技师不存在");
+        }
+        String token = "masseur_token_" + masseurId + "_" + System.currentTimeMillis();
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("token", token);
+        result.put("masseurInfo", masseurVO);
+        result.put("needBindPhone", false);
+        return Result.success(result);
+    }
 
     // TODO: Cross-service dependency - Login should be handled by auth service
     // /**

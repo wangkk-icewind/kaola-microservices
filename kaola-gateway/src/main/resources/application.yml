@@ -96,6 +96,22 @@ spring:
           filters:
             - StripPrefix=1
 
+        # Masseur Service 路由 - Admin Masseur Earnings (必须在通用admin/masseur路由之前)
+        - id: kaola-masseur-service-admin-earnings
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/admin/masseur/earnings/**
+          filters:
+            - StripPrefix=1
+
+        # Masseur Service 路由 - Admin Masseur Projects (必须在通用admin/masseur路由之前)
+        - id: kaola-masseur-service-admin-projects
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/admin/masseur/*/projects
+          filters:
+            - StripPrefix=1
+
         # Store Service 路由 - Admin Masseur (技师管理在store-service中)
         - id: kaola-store-service-admin-masseur
           uri: http://localhost:8083
@@ -103,6 +119,30 @@ spring:
             - Path=/api/admin/masseur/**
           filters:
             - StripPrefix=1
+
+        # Product Service 路由 - Admin Product (商品管理)
+        - id: kaola-product-service-admin-product
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/admin/product/**
+          filters:
+            - RewritePath=/api/admin/product/(?<seg>.*), /product/${seg}
+
+        # Order Service 路由 - Masseur Orders (必须在通用masseur路由之前)
+        - id: kaola-order-service-masseur-orders
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/masseur/orders,/api/masseur/orders/**
+          filters:
+            - RewritePath=/api/masseur/orders(?<seg>.*), /masseur/orders${seg}
+
+        # Schedule Service 路由 - Masseur Schedules (必须在通用masseur路由之前)
+        - id: kaola-schedule-service-masseur-schedules
+          uri: http://localhost:8091
+          predicates:
+            - Path=/api/masseur/schedules,/api/masseur/schedules/**
+          filters:
+            - RewritePath=/api/masseur/schedules(?<seg>.*), /masseur/schedules${seg}
 
         # Masseur Service 路由 - Public
         - id: kaola-masseur-service-public
