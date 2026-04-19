@@ -87,6 +87,18 @@ public class Masseur extends BaseEntity {
     private Integer status;
 
     /**
+     * 年龄
+     */
+    @TableField("age")
+    private Integer age;
+
+    /**
+     * 个人简介
+     */
+    @TableField("intention")
+    private String introduction;
+
+    /**
      * 银行账户信息 (JSON格式，包含银行名称、卡号、户名)
      */
     @TableField("bank_account")

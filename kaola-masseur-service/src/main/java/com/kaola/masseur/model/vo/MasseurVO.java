@@ -102,6 +102,41 @@ public class MasseurVO implements Serializable {
     private String experience;
 
     /**
+     * 所属门店名称
+     */
+    private String storeName;
+
+    /**
+     * 门店电话
+     */
+    private String storePhone;
+
+    /**
+     * 门店地址
+     */
+    private String storeAddress;
+
+    /**
+     * 营业时间（格式：09:00-22:00）
+     */
+    private String storeHours;
+
+    /**
+     * 门店纬度
+     */
+    private java.math.BigDecimal storeLat;
+
+    /**
+     * 门店经度
+     */
+    private java.math.BigDecimal storeLng;
+
+    /**
+     * 资质证书列表（JSON数组，图片URL）
+     */
+    private List<String> certifications;
+
+    /**
      * 可选服务项目列表
      */
     private List<ServiceItemVO> services;
@@ -118,6 +153,7 @@ public class MasseurVO implements Serializable {
         private String description;
         private BigDecimal price;
         private Integer duration;
+        private BigDecimal extraPricePerMinute; // 加钟单价（元/分钟）
         private Boolean selected;
     }
 }

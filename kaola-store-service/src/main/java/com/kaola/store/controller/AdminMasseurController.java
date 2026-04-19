@@ -163,8 +163,7 @@ public class AdminMasseurController {
             return Result.error("技师不存在");
         }
 
-        masseur.setDeleted(1);
-        boolean success = masseurService.updateById(masseur);
+        boolean success = masseurService.removeById(id);
         return success ? Result.success(true) : Result.error("删除失败");
     }
 

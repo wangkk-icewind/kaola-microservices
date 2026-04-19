@@ -409,43 +409,25 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * 获取项目信息
-     * TODO: 待product-service创建完成后，通过HTTP调用获取真实数据
+     * 获取项目信息（调用 product-service 真实数据）
      */
     private Map<String, Object> getProjectInfo(Long projectId) {
-        // 临时使用模拟数据
-        Map<String, Object> projectInfo = new java.util.HashMap<>();
-        projectInfo.put("id", projectId);
-
-        // 根据projectId返回不同的项目信息
-        switch (projectId.intValue()) {
-            case 1:
-                projectInfo.put("name", "中式推拿");
-                projectInfo.put("price", 198);
-                projectInfo.put("duration", 60);
-                projectInfo.put("image", "https://example.com/massage1.jpg");
-                break;
-            case 2:
-                projectInfo.put("name", "泰式按摩");
-                projectInfo.put("price", 258);
-                projectInfo.put("duration", 90);
-                projectInfo.put("image", "https://example.com/massage2.jpg");
-                break;
-            case 3:
-                projectInfo.put("name", "足部按摩");
-                projectInfo.put("price", 138);
-                projectInfo.put("duration", 45);
-                projectInfo.put("image", "https://example.com/massage3.jpg");
-                break;
-            default:
-                projectInfo.put("name", "推拿服务");
-                projectInfo.put("price", 188);
-                projectInfo.put("duration", 60);
-                projectInfo.put("image", "https://example.com/massage.jpg");
-                break;
+        try {
+            String url = PRODUCT_SERVICE_URL + "/project/" + projectId;
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            Map<String, Object> body = response.getBody();
+            if (body != null && Integer.valueOf(0).equals(body.get("code"))) {
+                return (Map<String, Object>) body.get("data");
+            }
+        } catch (Exception e) {
+            log.error("调用 product-service 获取项目信息失败, projectId: {}", projectId, e);
         }
-
-        return projectInfo;
+        return null;
     }
 
     /**

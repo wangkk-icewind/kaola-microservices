@@ -18,11 +18,7 @@ import com.kaola.masseur.service.MasseurService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -43,14 +39,6 @@ import java.util.stream.Collectors;
 public class MasseurServiceImpl implements MasseurService {
 
     private final MasseurMapper masseurMapper;
-    private final RestTemplate restTemplate;
-    // TODO: Cross-service dependency - Replace with OpenFeign client to kaola-project-service
-    // private final ProjectMapper projectMapper;
-    // TODO: Cross-service dependency - JwtUtils should be provided by common-core or auth service
-    // private final JwtUtils jwtUtils;
-
-    // Product service URL
-    private static final String PRODUCT_SERVICE_URL = "http://localhost:8085";
 
     // TODO: Cross-service dependency - Login should be handled by auth service
     // @Override
@@ -104,52 +92,30 @@ public class MasseurServiceImpl implements MasseurService {
     }
 
     /**
-     * 获取技师可提供的服务项目 - 通过HTTP调用product服务
+     * 获取技师可提供的服务项目 - 直接从DB查询关联项目
      */
     private List<MasseurVO.ServiceItemVO> getServicesForMasseur(Long masseurId) {
         try {
-            String url = PRODUCT_SERVICE_URL + "/project/list";
-            log.info("调用产品服务获取项目列表: {}", url);
-
-            // 调用product service API
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                null,
-                new ParameterizedTypeReference<Map<String, Object>>() {}
-            );
-
-            if (response.getBody() != null && response.getBody().get("data") != null) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> projects = (List<Map<String, Object>>) response.getBody().get("data");
-
-                return projects.stream().map(project -> {
-                    MasseurVO.ServiceItemVO item = new MasseurVO.ServiceItemVO();
-                    item.setId(((Number) project.get("id")).longValue());
-                    item.setName((String) project.get("name"));
-                    item.setDescription((String) project.get("description"));
-
-                    // Handle price conversion
-                    Object priceObj = project.get("price");
-                    if (priceObj instanceof Number) {
-                        item.setPrice(new BigDecimal(priceObj.toString()));
-                    }
-
-                    // Handle duration conversion
-                    Object durationObj = project.get("duration");
-                    if (durationObj instanceof Number) {
-                        item.setDuration(((Number) durationObj).intValue());
-                    }
-
-                    item.setSelected(false);
-                    return item;
-                }).collect(Collectors.toList());
-            }
+            List<java.util.Map<String, Object>> projects = masseurMapper.findProjectsByMasseurId(masseurId);
+            return projects.stream().map(project -> {
+                MasseurVO.ServiceItemVO item = new MasseurVO.ServiceItemVO();
+                Object idObj = project.get("id");
+                if (idObj instanceof Number) item.setId(((Number) idObj).longValue());
+                item.setName((String) project.get("name"));
+                item.setDescription((String) project.get("description"));
+                Object priceObj = project.get("price");
+                if (priceObj instanceof Number) item.setPrice(new BigDecimal(priceObj.toString()));
+                Object durationObj = project.get("duration");
+                if (durationObj instanceof Number) item.setDuration(((Number) durationObj).intValue());
+                Object extraObj = project.get("extraPricePerMinute");
+                if (extraObj instanceof Number) item.setExtraPricePerMinute(new BigDecimal(extraObj.toString()));
+                item.setSelected(false);
+                return item;
+            }).collect(Collectors.toList());
         } catch (Exception e) {
-            log.error("调用产品服务失败", e);
+            log.error("获取技师关联项目失败, masseurId: {}", masseurId, e);
+            return new ArrayList<>();
         }
-
-        return new ArrayList<>();
     }
 
     @Override
@@ -210,6 +176,16 @@ public class MasseurServiceImpl implements MasseurService {
         return masseurs.stream().map(this::convertToVO).collect(Collectors.toList());
     }
 
+    @Override
+    public List<MasseurVO> getMasseursByCity(String city) {
+        log.info("根据城市获取技师列表, city: {}", city);
+        if (city == null || city.isBlank()) {
+            return getMasseursByStore(null);
+        }
+        List<Masseur> masseurs = masseurMapper.findByCity(city);
+        return masseurs.stream().map(this::convertToVO).collect(Collectors.toList());
+    }
+
     // TODO: Cross-service dependency - Scheduling should be handled by scheduling service
     // @Override
     // public List<TimeSlotVO> getAvailableTime(Long masseurId, LocalDate date) {
@@ -240,24 +216,69 @@ public class MasseurServiceImpl implements MasseurService {
     private MasseurVO convertToVO(Masseur masseur) {
         MasseurVO vo = new MasseurVO();
         vo.setId(masseur.getId());
-        vo.setStoreId(1L);  // 默认门店ID，后续可关联门店技师表
+        vo.setStoreId(masseur.getStoreId());
         vo.setName(masseur.getName());
         vo.setAvatar(masseur.getAvatar());
         vo.setGender(masseur.getGender());
         vo.setLevel(masseur.getLevel());
         vo.setLevelName(getLevelName(masseur.getLevel()));
         vo.setRating(masseur.getRating());
-        vo.setReviewCount(0); // TODO: 需要从评价服务通过OpenFeign获取
-        vo.setOrderCount(0);  // TODO: 需要从订单服务通过OpenFeign获取
-        vo.setWorkYears(3);   // 默认值
+        vo.setReviewCount(0);
+        vo.setOrderCount(0);
+        int workYears = masseur.getWorkYears() != null ? masseur.getWorkYears() : 1;
+        vo.setWorkYears(workYears);
+        vo.setExperience(workYears + "年");
+        vo.setIntroduction(masseur.getIntroduction() != null ? masseur.getIntroduction() : "从业多年，精通多种推拿手法，擅长解决各类身体不适问题。");
 
-        // 解析skills JSON数组
+        // 门店信息
+        if (masseur.getStoreId() != null) {
+            try {
+                Map<String, Object> storeInfo = masseurMapper.findStoreInfoById(masseur.getStoreId());
+                if (storeInfo != null) {
+                    vo.setStoreName((String) storeInfo.get("name"));
+                    vo.setStorePhone((String) storeInfo.get("phone"));
+                    vo.setStoreAddress((String) storeInfo.get("address"));
+                    // mapUnderscoreToCamelCase=true: open_time → openTime
+                    String openTime = (String) storeInfo.getOrDefault("openTime", storeInfo.get("open_time"));
+                    String closeTime = (String) storeInfo.getOrDefault("closeTime", storeInfo.get("close_time"));
+                    if (openTime != null && closeTime != null) {
+                        vo.setStoreHours(openTime + "-" + closeTime);
+                    }
+                    Object lat = storeInfo.getOrDefault("latitude", null);
+                    Object lng = storeInfo.getOrDefault("longitude", null);
+                    if (lat instanceof java.math.BigDecimal) vo.setStoreLat((java.math.BigDecimal) lat);
+                    if (lng instanceof java.math.BigDecimal) vo.setStoreLng((java.math.BigDecimal) lng);
+                }
+            } catch (Exception e) {
+                log.warn("获取门店信息失败, storeId: {}", masseur.getStoreId());
+            }
+        }
+
+        // 证书列表
+        String certs = masseur.getCertifications();
+        List<String> certList = new ArrayList<>();
+        if (certs != null && !certs.isBlank()) {
+            try {
+                certs = certs.trim();
+                if (certs.startsWith("[")) {
+                    certs = certs.replace("[", "").replace("]", "").replace("\"", "");
+                    for (String c : certs.split(",")) {
+                        String cert = c.trim();
+                        if (!cert.isEmpty()) certList.add(cert);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("解析证书字段失败", e);
+            }
+        }
+        vo.setCertifications(certList);
+
+        // 技能标签
         String skills = masseur.getSkills();
         List<String> skillList = new ArrayList<>();
         if (skills != null && skills.startsWith("[")) {
             String cleanSkills = skills.replace("[", "").replace("]", "").replace("\"", "");
             vo.setTags(cleanSkills);
-            // 解析为列表作为擅长症状
             for (String skill : cleanSkills.split(",")) {
                 skillList.add(skill.trim());
             }
@@ -265,10 +286,6 @@ public class MasseurServiceImpl implements MasseurService {
             vo.setTags(skills);
         }
         vo.setSpecialties(skillList);
-
-        // 设置个人简介和经验
-        vo.setIntroduction("从业多年，精通多种推拿手法，擅长解决各类身体不适问题。");
-        vo.setExperience(vo.getWorkYears() + "年");
 
         vo.setAvailable(masseur.getStatus() == 1);
         return vo;

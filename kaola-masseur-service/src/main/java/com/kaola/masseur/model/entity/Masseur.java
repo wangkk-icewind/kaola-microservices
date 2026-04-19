@@ -75,6 +75,18 @@ public class Masseur extends BaseEntity {
     private String certifications;
 
     /**
+     * 从业年限
+     */
+    @TableField("work_years")
+    private Integer workYears;
+
+    /**
+     * 个人简介
+     */
+    @TableField("introduction")
+    private String introduction;
+
+    /**
      * 技能标签 (JSON数组格式，如["推拿","拔罐","刮痧"])
      */
     @TableField("skills")

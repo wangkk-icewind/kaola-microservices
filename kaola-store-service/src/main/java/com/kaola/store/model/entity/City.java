@@ -4,73 +4,59 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
-/**
- * 城市实体
- *
- * @author Kaola Team
- */
 @Data
 @TableName("t_city")
 public class City implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * 主键ID
-     */
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /**
-     * 城市代码
-     */
     @TableField("city_code")
     private String cityCode;
 
-    /**
-     * 城市名称
-     */
     @TableField("city_name")
     private String cityName;
 
-    /**
-     * 省份
-     */
     @TableField("province")
     private String province;
 
-    /**
-     * 城市级别 (1-直辖市, 2-省会, 3-地级市)
-     */
     @TableField("city_level")
     private Integer cityLevel;
 
-    /**
-     * 纬度
-     */
     @TableField("latitude")
     private BigDecimal latitude;
 
-    /**
-     * 经度
-     */
     @TableField("longitude")
     private BigDecimal longitude;
 
-    /**
-     * 拼音全拼
-     */
     @TableField("pinyin")
     private String pinyin;
 
-    /**
-     * 拼音首字母
-     */
     @TableField("pinyin_abbr")
     private String pinyinAbbr;
+
+    /** 状态 0-下线 1-上线 */
+    @TableField("status")
+    private Integer status;
+
+    /** 排序（数值越小越靠前） */
+    @TableField("sort_order")
+    private Integer sortOrder;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @TableField("create_time")
+    private LocalDateTime createTime;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @TableField("update_time")
+    private LocalDateTime updateTime;
 }

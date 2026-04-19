@@ -86,4 +86,38 @@ public interface MasseurMapper extends BaseMapper<Masseur> {
             "AND p.deleted = 0 " +
             "ORDER BY m.rating DESC")
     List<Masseur> findByStoreIdAndCategoryId(@Param("storeId") Long storeId, @Param("categoryId") Long categoryId);
+
+    /**
+     * 获取门店名称
+     */
+    @Select("SELECT name FROM t_store WHERE id = #{storeId} AND deleted = 0 LIMIT 1")
+    String findStoreNameById(@Param("storeId") Long storeId);
+
+    /**
+     * 获取门店详情（名称、电话、地址、营业时间、坐标）
+     */
+    @Select("SELECT name, phone, address, open_time, close_time, latitude, longitude " +
+            "FROM t_store WHERE id = #{storeId} AND deleted = 0 LIMIT 1")
+    java.util.Map<String, Object> findStoreInfoById(@Param("storeId") Long storeId);
+
+    /**
+     * 根据技师ID获取关联项目列表
+     */
+    @Select("SELECT p.id, p.name, p.description, p.base_price as price, p.duration, p.extra_price_per_minute as extraPricePerMinute " +
+            "FROM masseur_project mp " +
+            "JOIN t_project p ON mp.project_id = p.id " +
+            "WHERE mp.masseur_id = #{masseurId} AND mp.deleted = 0 AND p.deleted = 0 AND p.status = 1 " +
+            "ORDER BY p.id")
+    List<java.util.Map<String, Object>> findProjectsByMasseurId(@Param("masseurId") Long masseurId);
+
+    /**
+     * 根据城市查询技师列表（JOIN门店表，兼容"芜湖"/"芜湖市"两种格式）
+     */
+    @Select("SELECT m.* FROM t_masseur m " +
+            "INNER JOIN t_store s ON m.store_id = s.id " +
+            "WHERE (s.city = #{city} OR CONCAT(s.city, '市') = #{city} OR s.city = REPLACE(#{city}, '市', '')) " +
+            "AND m.status = 1 AND m.deleted = 0 " +
+            "AND s.status = 1 AND s.deleted = 0 " +
+            "ORDER BY m.rating DESC")
+    List<Masseur> findByCity(@Param("city") String city);
 }

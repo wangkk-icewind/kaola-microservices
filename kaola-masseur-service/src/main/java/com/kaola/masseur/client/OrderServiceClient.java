@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  *
  * @author Kaola Team
  */
-@FeignClient(name = "kaola-order-service")
+@FeignClient(name = "kaola-order-service", url = "http://localhost:8086")
 public interface OrderServiceClient {
 
     /**

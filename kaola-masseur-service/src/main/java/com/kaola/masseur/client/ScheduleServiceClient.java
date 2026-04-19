@@ -15,7 +15,7 @@ import java.util.List;
  *
  * @author Kaola Team
  */
-@FeignClient(name = "kaola-schedule-service")
+@FeignClient(name = "kaola-schedule-service", url = "http://localhost:8091")
 public interface ScheduleServiceClient {
 
     /**

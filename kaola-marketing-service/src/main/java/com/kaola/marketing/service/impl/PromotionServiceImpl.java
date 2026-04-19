@@ -1,6 +1,7 @@
 package com.kaola.marketing.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kaola.common.core.dto.PageVO;
@@ -201,13 +202,11 @@ public class PromotionServiceImpl implements PromotionService {
     public boolean deletePromotion(Long id) {
         log.info("删除促销活动, id: {}", id);
 
-        Promotion promotion = promotionMapper.selectById(id);
-        if (promotion == null) {
-            throw new RuntimeException("促销活动不存在");
-        }
-
-        // 软删除
-        int rows = promotionMapper.deleteById(id);
+        // 使用 LambdaUpdateWrapper 直接软删除，兼容 deleted 字段为 null 的历史数据
+        LambdaUpdateWrapper<Promotion> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(Promotion::getId, id);
+        wrapper.set(Promotion::getDeleted, 1);
+        int rows = promotionMapper.update(null, wrapper);
         return rows > 0;
     }
 

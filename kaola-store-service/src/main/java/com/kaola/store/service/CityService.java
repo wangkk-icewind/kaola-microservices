@@ -4,25 +4,23 @@ import com.kaola.store.model.entity.City;
 
 import java.util.List;
 
-/**
- * 城市服务接口
- *
- * @author Kaola Team
- */
 public interface CityService {
 
-    /**
-     * 获取所有城市列表
-     *
-     * @return 城市列表
-     */
-    List<City> getAllCities();
+    /** 获取城市列表（status=null 全部，status=1 仅上线） */
+    List<City> getCities(Integer status);
 
-    /**
-     * 搜索城市
-     *
-     * @param keyword 关键词（城市名或拼音）
-     * @return 城市列表
-     */
+    /** 搜索城市 */
     List<City> searchCities(String keyword);
+
+    /** 创建城市 */
+    City createCity(City city);
+
+    /** 更新城市 */
+    City updateCity(City city);
+
+    /** 更新城市状态 */
+    void updateCityStatus(Long id, Integer status);
+
+    /** 删除城市 */
+    void deleteCity(Long id);
 }

@@ -77,7 +77,6 @@ public class AdminProjectController {
         pageResult.getRecords().forEach(project -> {
             // 设置价格字段（与basePrice相同）
             project.setPrice(project.getBasePrice());
-            project.setOriginalPrice(project.getBasePrice());
 
             // 设置销量（暂时为0或"-"，实际应从订单统计）
             project.setSalesCount(0);
@@ -108,7 +107,6 @@ public class AdminProjectController {
 
         // 填充前端需要的额外字段
         project.setPrice(project.getBasePrice());
-        project.setOriginalPrice(project.getBasePrice());
         project.setSalesCount(0);
 
         // 设置分类名称
@@ -155,6 +153,11 @@ public class AdminProjectController {
             return Result.error("项目不存在");
         }
 
+        // 前端通过 price 字段传值，映射到数据库的 basePrice 字段
+        if (project.getPrice() != null) {
+            project.setBasePrice(project.getPrice());
+        }
+
         int rows = projectRepository.updateById(project);
         return rows > 0 ? Result.success(true) : Result.error("更新失败");
     }
@@ -172,8 +175,7 @@ public class AdminProjectController {
             return Result.error("项目不存在");
         }
 
-        project.setDeleted(1);
-        int rows = projectRepository.updateById(project);
+        int rows = projectRepository.deleteById(id);
         return rows > 0 ? Result.success(true) : Result.error("删除失败");
     }
 

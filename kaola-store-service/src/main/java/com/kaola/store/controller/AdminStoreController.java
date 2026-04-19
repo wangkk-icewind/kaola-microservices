@@ -151,8 +151,7 @@ public class AdminStoreController {
             return Result.error("门店不存在");
         }
 
-        store.setDeleted(1);
-        boolean success = storeService.updateById(store);
+        boolean success = storeService.removeById(id);
         return success ? Result.success(true) : Result.error("删除失败");
     }
 

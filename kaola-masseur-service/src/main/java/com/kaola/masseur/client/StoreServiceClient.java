@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
  *
  * @author Kaola Team
  */
-@FeignClient(name = "kaola-store-service")
+@FeignClient(name = "kaola-store-service", url = "http://localhost:8083")
 public interface StoreServiceClient {
 
     /**

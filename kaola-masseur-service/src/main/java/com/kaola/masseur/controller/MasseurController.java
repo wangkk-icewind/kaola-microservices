@@ -147,22 +147,26 @@ public class MasseurController {
      * @param symptomId 症状ID
      * @return 技师列表
      */
-    @Operation(summary = "获取技师列表", description = "根据门店或症状获取技师列表")
+    @Operation(summary = "获取技师列表", description = "根据城市/门店/症状获取技师列表")
     @GetMapping("/list")
     public Result<List<MasseurVO>> getMasseurList(
+            @Parameter(description = "城市名称")
+            @RequestParam(required = false) String city,
             @Parameter(description = "门店ID")
             @RequestParam(required = false) Long storeId,
             @Parameter(description = "症状ID")
             @RequestParam(required = false) Long symptomId) {
         List<MasseurVO> masseurList;
 
-        // 如果同时提供了门店ID和症状ID，使用组合查询
+        // 优先级：门店+症状 > 症状 > 门店 > 城市 > 全部
         if (storeId != null && symptomId != null) {
             masseurList = masseurService.getMasseursByStoreAndSymptom(storeId, symptomId);
         } else if (symptomId != null) {
             masseurList = masseurService.getMasseursBySymptom(symptomId);
         } else if (storeId != null) {
             masseurList = masseurService.getMasseursByStore(storeId);
+        } else if (city != null && !city.isBlank()) {
+            masseurList = masseurService.getMasseursByCity(city);
         } else {
             masseurList = masseurService.getMasseursByStore(null);
         }

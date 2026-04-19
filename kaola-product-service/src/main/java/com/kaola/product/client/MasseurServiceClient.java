@@ -12,7 +12,7 @@ import java.util.List;
  *
  * @author Kaola Team
  */
-@FeignClient(name = "kaola-masseur-service")
+@FeignClient(name = "kaola-masseur-service", url = "http://localhost:8084")
 public interface MasseurServiceClient {
 
     /**

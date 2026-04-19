@@ -50,6 +50,13 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    public ProjectVO getProjectById(Long projectId) {
+        if (projectId == null) return null;
+        Project project = projectRepository.selectById(projectId);
+        return project != null ? convertToProjectVO(project) : null;
+    }
+
+    @Override
     public List<ProjectVO> getProjectsByCategory(Long categoryId) {
         log.info("获取分类下的项目, categoryId: {}", categoryId);
 
@@ -141,6 +148,14 @@ public class ProjectServiceImpl implements ProjectService {
             String firstImage = images.split("\"")[1];
             vo.setImage(firstImage);
         }
+        vo.setTechnique(project.getTechnique());
+        vo.setIntroImages(project.getIntroImages());
+        vo.setIntroVideo(project.getIntroVideo());
+        vo.setSuitableImages(project.getSuitableImages());
+        vo.setConditioningMethod(project.getConditioningMethod());
+        vo.setConditioningImages(project.getConditioningImages());
+        vo.setProcessSteps(project.getProcessSteps());
+        vo.setContraindications(project.getContraindications());
         return vo;
     }
 }

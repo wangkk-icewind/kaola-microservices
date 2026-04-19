@@ -51,6 +51,15 @@ public class ProjectController {
      * @param masseurId  技师ID
      * @return 项目列表
      */
+    @Operation(summary = "获取项目详情", description = "根据项目ID获取项目详情")
+    @GetMapping("/{id}")
+    public Result<ProjectVO> getProjectById(
+            @Parameter(description = "项目ID", required = true)
+            @PathVariable Long id) {
+        ProjectVO project = projectService.getProjectById(id);
+        return project != null ? Result.success(project) : Result.error("项目不存在");
+    }
+
     @Operation(summary = "获取项目列表", description = "根据分类或技师获取项目列表")
     @GetMapping("/list")
     public Result<List<ProjectVO>> getProjectList(

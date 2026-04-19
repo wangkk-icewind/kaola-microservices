@@ -159,8 +159,7 @@ public class AdminMasseurController {
             return Result.error("技师不存在");
         }
 
-        masseur.setDeleted(1);
-        int rows = masseurMapper.updateById(masseur);
+        int rows = masseurMapper.deleteById(id);
         return rows > 0 ? Result.success(true) : Result.error("删除失败");
     }
 

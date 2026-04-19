@@ -15,7 +15,7 @@ import java.util.List;
  *
  * @author Kaola Team
  */
-@FeignClient(name = "kaola-earning-service")
+@FeignClient(name = "kaola-earning-service", url = "http://localhost:8096")
 public interface EarningServiceClient {
 
     /**

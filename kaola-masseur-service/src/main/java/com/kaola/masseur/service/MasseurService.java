@@ -68,6 +68,14 @@ public interface MasseurService {
      */
     List<MasseurVO> getMasseursByStoreAndSymptom(Long storeId, Long symptomId);
 
+    /**
+     * 根据城市获取技师列表
+     *
+     * @param city 城市名称
+     * @return 技师列表
+     */
+    List<MasseurVO> getMasseursByCity(String city);
+
     // TODO: Cross-service dependency - Scheduling should be handled by scheduling service via OpenFeign
     // /**
     //  * 获取技师可预约时间

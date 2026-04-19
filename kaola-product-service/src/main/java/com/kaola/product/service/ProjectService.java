@@ -28,6 +28,8 @@ public interface ProjectService {
      * @param categoryId 分类ID
      * @return 项目列表
      */
+    ProjectVO getProjectById(Long projectId);
+
     List<ProjectVO> getProjectsByCategory(Long categoryId);
 
     /**
