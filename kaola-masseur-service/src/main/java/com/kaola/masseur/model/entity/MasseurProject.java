@@ -46,4 +46,11 @@ public class MasseurProject implements Serializable {
      */
     @TableField(value = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * 删除标记 0:未删除 1:已删除
+     */
+    @TableField("deleted")
+    @TableLogic
+    private Integer deleted;
 }

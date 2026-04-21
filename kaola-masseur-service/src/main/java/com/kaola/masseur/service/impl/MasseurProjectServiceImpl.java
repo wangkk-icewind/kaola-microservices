@@ -34,10 +34,10 @@ public class MasseurProjectServiceImpl implements MasseurProjectService {
         // 添加新关联
         if (projectIds != null && !projectIds.isEmpty()) {
             LocalDateTime now = LocalDateTime.now();
-            for (Long projectId : projectIds) {
+            for (Object pid : projectIds) {
                 MasseurProject masseurProject = new MasseurProject();
                 masseurProject.setMasseurId(masseurId);
-                masseurProject.setProjectId(projectId);
+                masseurProject.setProjectId(((Number) pid).longValue());
                 masseurProject.setCreatedAt(now);
                 masseurProject.setUpdatedAt(now);
                 masseurProjectMapper.insert(masseurProject);
