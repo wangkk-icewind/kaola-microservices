@@ -15,12 +15,20 @@ import java.util.List;
 public interface PromotionService {
 
     /**
-     * 获取活动促销
+     * 获取活动促销（全局 + 指定门店）
      *
      * @param storeId 门店ID
      * @return 促销活动列表
      */
     List<PromotionVO> getActivePromotions(Long storeId);
+
+    /**
+     * 获取门店时段折扣（仅查询该门店的折扣，不含全局促销）
+     *
+     * @param storeId 门店ID
+     * @return 折扣列表
+     */
+    List<PromotionVO> getStoreDiscounts(Long storeId);
 
     /**
      * 获取用户可用优惠券

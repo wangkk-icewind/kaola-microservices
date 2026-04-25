@@ -64,4 +64,14 @@ public class PromotionVO implements Serializable {
      * 剩余时间描述
      */
     private String remainingTime;
+
+    /**
+     * 折扣规则 (JSON字符串，含 discount/reduce/timeSlotStart/timeSlotEnd 等字段)
+     */
+    private String rules;
+
+    /**
+     * 活动类型原始折扣值 (type=2时为折扣系数，如0.95)
+     */
+    private java.math.BigDecimal discount;
 }

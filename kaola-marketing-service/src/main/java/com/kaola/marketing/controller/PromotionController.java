@@ -48,12 +48,12 @@ public class PromotionController {
      * @param storeId 门店ID
      * @return 促销活动列表
      */
-    @Operation(summary = "获取门店促销活动", description = "获取指定门店的促销活动列表（RESTful风格）")
+    @Operation(summary = "获取门店时段折扣", description = "获取指定门店配置的时段折扣（严格按门店过滤，不含全局促销）")
     @GetMapping("/store/{storeId}/promotions")
     public Result<List<PromotionVO>> getStorePromotions(
             @Parameter(description = "门店ID", required = true)
             @PathVariable Long storeId) {
-        List<PromotionVO> promotions = promotionService.getActivePromotions(storeId);
+        List<PromotionVO> promotions = promotionService.getStoreDiscounts(storeId);
         return Result.success(promotions);
     }
 

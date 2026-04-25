@@ -71,6 +71,7 @@ public class PromotionServiceImpl implements PromotionService {
             vo.setType(promotion.getType());
             vo.setStartTime(promotion.getStartTime());
             vo.setEndTime(promotion.getEndTime());
+            vo.setRules(promotion.getRules());
             vo.setIsActive(true); // 查询出来的都是活动中的
 
             // 计算剩余时间
@@ -114,6 +115,37 @@ public class PromotionServiceImpl implements PromotionService {
         log.info("使用优惠券, orderId: {}, couponId: {}", orderId, couponId);
         // TODO: 实现优惠券使用逻辑
         return true;
+    }
+
+    @Override
+    public List<PromotionVO> getStoreDiscounts(Long storeId) {
+        log.info("获取门店时段折扣, storeId: {}", storeId);
+
+        LambdaQueryWrapper<Promotion> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Promotion::getStatus, 1);
+        wrapper.eq(Promotion::getStoreId, storeId);
+        wrapper.le(Promotion::getStartTime, LocalDateTime.now());
+        wrapper.ge(Promotion::getEndTime, LocalDateTime.now());
+        wrapper.orderByAsc(Promotion::getCreateTime);
+
+        List<Promotion> promotions = promotionMapper.selectList(wrapper);
+
+        List<PromotionVO> result = new ArrayList<>();
+        for (Promotion p : promotions) {
+            PromotionVO vo = new PromotionVO();
+            vo.setId(p.getId());
+            vo.setName(p.getName());
+            vo.setDescription(p.getDescription());
+            vo.setType(p.getType());
+            vo.setRules(p.getRules());
+            vo.setStartTime(p.getStartTime());
+            vo.setEndTime(p.getEndTime());
+            vo.setIsActive(true);
+            result.add(vo);
+        }
+
+        log.info("门店{}共有{}条时段折扣", storeId, result.size());
+        return result;
     }
 
     // ==================== Admin 端方法实现 ====================
