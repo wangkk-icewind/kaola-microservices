@@ -109,25 +109,25 @@ public class Masseur extends BaseEntity {
     /**
      * 年龄
      */
-    @TableField("age")
+    @TableField(value = "age", exist = false)
     private Integer age;
 
     /**
      * 籍贯（省市区，如：广东省深圳市南山区）
      */
-    @TableField("hometown")
+    @TableField(value = "hometown", exist = false)
     private String hometown;
 
     /**
      * 期望薪资范围（如：8000-12000）
      */
-    @TableField("salary_range")
+    @TableField(value = "salary_range", exist = false)
     private String salaryRange;
 
     /**
      * 意向信息（JSON格式，包含意向城市、意向岗位、可入职时间等）
      * 示例：{"cities":["深圳","广州"],"positions":["推拿师","理疗师"],"availableDate":"2024-01-01","remarks":"有3年工作经验"}
      */
-    @TableField("intention")
+    @TableField(value = "intention", exist = false)
     private String intention;
 }

@@ -21,7 +21,7 @@ public class MasseurLevelPricing extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 技师等级 (1-初级 2-中级 3-高级 4-专家)
+     * 技师等级 (1-LV1 2-LV2 3-LV3 4-LV4 5-LV5 6-LV6)
      */
     @TableField("level")
     private Integer level;

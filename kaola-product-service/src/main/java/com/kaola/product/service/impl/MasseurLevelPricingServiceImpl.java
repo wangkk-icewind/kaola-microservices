@@ -87,6 +87,10 @@ public class MasseurLevelPricingServiceImpl implements MasseurLevelPricingServic
         }
 
         pricing.setId(id);
+        // 保留原有 level，不被前端传入的 null 覆盖
+        if (pricing.getLevel() == null) {
+            pricing.setLevel(existing.getLevel());
+        }
         return masseurLevelPricingRepository.updateById(pricing) > 0;
     }
 

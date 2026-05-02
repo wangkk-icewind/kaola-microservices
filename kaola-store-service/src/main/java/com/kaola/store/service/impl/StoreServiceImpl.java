@@ -85,6 +85,10 @@ public class StoreServiceImpl extends ServiceImpl<StoreMapper, Store> implements
             vo.setImage(firstImage);
         }
 
+        // 经纬度透传（前端导航和客户端测距使用）
+        vo.setLatitude(store.getLatitude());
+        vo.setLongitude(store.getLongitude());
+
         // 计算距离
         if (lat != null && lng != null && store.getLatitude() != null && store.getLongitude() != null) {
             double distance = calculateDistance(

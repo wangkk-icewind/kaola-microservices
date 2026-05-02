@@ -21,6 +21,15 @@ public interface UserService {
     LoginVO login(String code);
 
     /**
+     * 手机号登录
+     *
+     * @param phone      手机号
+     * @param verifyCode 验证码
+     * @return 登录结果
+     */
+    LoginVO phoneLogin(String phone, String verifyCode);
+
+    /**
      * 获取用户信息
      *
      * @param userId 用户ID

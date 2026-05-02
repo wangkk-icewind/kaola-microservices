@@ -13,12 +13,17 @@ import com.kaola.marketing.model.vo.PricingConfigVO;
 import com.kaola.marketing.service.PricingConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -31,9 +36,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PricingConfigServiceImpl implements PricingConfigService {
 
+    private static final String PRODUCT_SERVICE_URL = "http://localhost:8085";
+
     private final MasseurLevelPricingMapper masseurLevelPricingMapper;
     private final TimeSlotPricingMapper timeSlotPricingMapper;
     private final StorePricingMapper storePricingMapper;
+    private final RestTemplate restTemplate;
 
     @Override
     public PricingConfigVO getPricingConfig() {
@@ -107,16 +115,18 @@ public class PricingConfigServiceImpl implements PricingConfigService {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public PriceCalculationVO calculatePrice(PriceCalculationRequest request) {
         log.info("计算价格: projectId={}, masseurLevel={}, storeId={}, appointmentTime={}",
                 request.getProjectId(), request.getMasseurLevel(), request.getStoreId(), request.getAppointmentTime());
 
-        // TODO: 在实际实现中，需要通过OpenFeign调用product-service获取项目基础价格
-        // 这里使用固定值作为示例
-        BigDecimal basePrice = new BigDecimal("188.00");
+        // 从 product-service 获取项目卖价底和划线原价底
+        BigDecimal[] prices = getProjectPrices(request.getProjectId());
+        BigDecimal basePrice = prices[0];         // 卖价底（project.basePrice）
+        BigDecimal originalBasePrice = prices[1]; // 划线原价底（project.originalPrice）
 
         // 1. 获取技师等级系数
-        BigDecimal masseurMultiplier = getMasseurLevelMultiplier(request.getMasseurLevel());
+        BigDecimal levelMultiplier = getMasseurLevelMultiplier(request.getMasseurLevel());
 
         // 2. 获取时段系数
         BigDecimal timeSlotMultiplier = getTimeSlotMultiplier(request.getAppointmentTime());
@@ -124,57 +134,99 @@ public class PricingConfigServiceImpl implements PricingConfigService {
         // 3. 获取门店系数
         BigDecimal storeMultiplier = getStoreMultiplier(request.getStoreId());
 
-        // 4. 计算原价 = 基础价格 × 技师系数 × 时段系数 × 门店系数
-        BigDecimal originalPrice = basePrice
-                .multiply(masseurMultiplier)
+        // 4. 划线原价 = 项目 originalPrice × 全部系数
+        BigDecimal originalPrice = originalBasePrice
+                .multiply(levelMultiplier)
                 .multiply(timeSlotMultiplier)
                 .multiply(storeMultiplier)
-                .setScale(2, BigDecimal.ROUND_HALF_UP);
+                .setScale(0, BigDecimal.ROUND_FLOOR);
 
-        // 5. 计算加钟费用
+        // 5. 服务价格（卖价）= basePrice × 全部系数
+        BigDecimal servicePrice = basePrice
+                .multiply(levelMultiplier)
+                .multiply(timeSlotMultiplier)
+                .multiply(storeMultiplier)
+                .setScale(0, BigDecimal.ROUND_FLOOR);
+
+        // 6. 计算加钟费用
         BigDecimal extraPrice = BigDecimal.ZERO;
         if (request.getExtraMinutes() != null && request.getExtraMinutes() > 0) {
-            // 加钟单价 = 基础价格 / 60分钟
-            BigDecimal pricePerMinute = basePrice.divide(new BigDecimal("60"), 4, BigDecimal.ROUND_HALF_UP);
+            BigDecimal pricePerMinute = basePrice.divide(new BigDecimal("60"), 4, BigDecimal.ROUND_FLOOR);
             extraPrice = pricePerMinute
                     .multiply(new BigDecimal(request.getExtraMinutes()))
+                    .multiply(levelMultiplier)
                     .multiply(timeSlotMultiplier)
-                    .setScale(2, BigDecimal.ROUND_HALF_UP);
+                    .multiply(storeMultiplier)
+                    .setScale(0, BigDecimal.ROUND_FLOOR);
         }
 
-        // 6. 计算优惠折扣（暂时不实现优惠券逻辑）
+        // 7. 计算优惠折扣（暂时不实现优惠券逻辑）
         BigDecimal discountAmount = BigDecimal.ZERO;
-        String discountReason = null;
 
-        // 7. 计算最终价格 = 原价 + 加钟费用 - 优惠折扣
-        BigDecimal finalPrice = originalPrice
+        // 8. 最终价格 = 服务价格 + 加钟费用 - 优惠折扣
+        BigDecimal finalPrice = servicePrice
                 .add(extraPrice)
                 .subtract(discountAmount)
-                .setScale(2, BigDecimal.ROUND_HALF_UP);
+                .setScale(0, BigDecimal.ROUND_FLOOR);
 
-        // 8. 构建返回结果
+        // 9. 构建返回结果
         PriceCalculationVO result = PriceCalculationVO.builder()
                 .basePrice(basePrice)
-                .masseurLevelMultiplier(masseurMultiplier)
+                .levelMultiplier(levelMultiplier)
                 .timeSlotMultiplier(timeSlotMultiplier)
                 .storeMultiplier(storeMultiplier)
                 .originalPrice(originalPrice)
+                .servicePrice(servicePrice)
                 .extraPrice(extraPrice)
                 .discountAmount(discountAmount)
                 .finalPrice(finalPrice)
-                .discountReason(discountReason)
                 .build();
 
-        log.info("价格计算完成: 基础价格={}, 原价={}, 加钟费用={}, 最终价格={}",
-                basePrice, originalPrice, extraPrice, finalPrice);
+        log.info("价格计算完成: 基础价格={}, 服务价格={}, 加钟费用={}, 最终价格={}",
+                basePrice, servicePrice, extraPrice, finalPrice);
 
         return result;
+    }
+
+    /**
+     * 从 product-service 获取项目价格：[0]=卖价底(basePrice), [1]=划线原价底(originalPrice)
+     */
+    @SuppressWarnings("unchecked")
+    private BigDecimal[] getProjectPrices(Long projectId) {
+        if (projectId == null) {
+            log.warn("projectId 为空，使用默认价格 0");
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
+        }
+        try {
+            String url = PRODUCT_SERVICE_URL + "/project/" + projectId;
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response != null && Integer.valueOf(0).equals(response.get("code"))) {
+                Map<String, Object> data = (Map<String, Object>) response.get("data");
+                if (data != null && data.get("price") != null) {
+                    BigDecimal basePrice = new BigDecimal(data.get("price").toString());
+                    // originalPrice 字段：若为空则与卖价相同
+                    BigDecimal originalPrice = data.get("originalPrice") != null
+                            ? new BigDecimal(data.get("originalPrice").toString())
+                            : basePrice;
+                    log.info("获取项目 {} 价格成功: basePrice={}, originalPrice={}", projectId, basePrice, originalPrice);
+                    return new BigDecimal[]{basePrice, originalPrice};
+                }
+            }
+            log.warn("获取项目 {} 价格失败，响应: {}", projectId, response);
+        } catch (Exception e) {
+            log.error("调用 product-service 获取项目 {} 价格失败", projectId, e);
+        }
+        log.error("无法获取项目 {} 价格，请检查 product-service 是否正常运行", projectId);
+        return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
     }
 
     /**
      * 获取技师等级系数
      */
     private BigDecimal getMasseurLevelMultiplier(Integer level) {
+        if (level == null) {
+            return BigDecimal.ONE;
+        }
         MasseurLevelPricing pricing = masseurLevelPricingMapper.selectOne(
                 new LambdaQueryWrapper<MasseurLevelPricing>()
                         .eq(MasseurLevelPricing::getLevel, level)
@@ -187,24 +239,20 @@ public class PricingConfigServiceImpl implements PricingConfigService {
      * 获取时段系数
      */
     private BigDecimal getTimeSlotMultiplier(java.time.LocalDateTime appointmentTime) {
-        // 获取星期几 (1-7)
         int dayOfWeek = appointmentTime.getDayOfWeek().getValue();
-        // 获取时间 (HH:mm)
         String timeStr = String.format("%02d:%02d", appointmentTime.getHour(), appointmentTime.getMinute());
 
-        // 查询所有启用的时段定价
         List<TimeSlotPricing> timeSlotPricings = timeSlotPricingMapper.selectList(
                 new LambdaQueryWrapper<TimeSlotPricing>()
                         .eq(TimeSlotPricing::getStatus, 1)
+                        .orderByDesc(TimeSlotPricing::getSlotType)
         );
 
-        // 匹配时段
         for (TimeSlotPricing pricing : timeSlotPricings) {
             if (matchesTimeSlot(pricing, dayOfWeek, timeStr)) {
                 return pricing.getMultiplier();
             }
         }
-
         return BigDecimal.ONE;
     }
 
@@ -212,15 +260,71 @@ public class PricingConfigServiceImpl implements PricingConfigService {
      * 判断是否匹配时段
      */
     private boolean matchesTimeSlot(TimeSlotPricing pricing, int dayOfWeek, String timeStr) {
-        // 简化实现：这里应该解析JSON格式的dayOfWeek和timeRanges
-        // 暂时返回true，使用第一个匹配的时段
-        return true;
+        // 1. 解析 dayOfWeek JSON：空数组表示适用所有星期
+        String dayOfWeekJson = pricing.getDayOfWeek();
+        if (dayOfWeekJson != null && !dayOfWeekJson.trim().isEmpty()) {
+            JSONArray dayArray = JSON.parseArray(dayOfWeekJson);
+            if (dayArray != null && !dayArray.isEmpty()) {
+                boolean matchDay = false;
+                for (Object d : dayArray) {
+                    if (((Number) d).intValue() == dayOfWeek) {
+                        matchDay = true;
+                        break;
+                    }
+                }
+                if (!matchDay) {
+                    return false;
+                }
+            }
+        }
+
+        // 2. 解析 timeRanges JSON，检查时间是否在任意时段内
+        String timeRangesJson = pricing.getTimeRanges();
+        if (timeRangesJson == null || timeRangesJson.trim().isEmpty()) {
+            return false;
+        }
+
+        JSONArray ranges = JSON.parseArray(timeRangesJson);
+        if (ranges == null || ranges.isEmpty()) {
+            return false;
+        }
+
+        LocalTime targetTime = LocalTime.parse(timeStr);
+        for (Object rangeObj : ranges) {
+            JSONObject range = (JSONObject) rangeObj;
+            String startStr = range.getString("start");
+            String endStr = range.getString("end");
+            if (startStr == null || endStr == null) {
+                continue;
+            }
+
+            LocalTime start = LocalTime.parse(startStr);
+            LocalTime end = LocalTime.parse(endStr);
+
+            boolean match;
+            if (start.isBefore(end) || start.equals(end)) {
+                // 普通时段：start < end（如 10:00~18:00）
+                match = !targetTime.isBefore(start) && targetTime.isBefore(end);
+            } else {
+                // 跨夜时段：start > end（如 22:00~08:00）
+                match = !targetTime.isBefore(start) || targetTime.isBefore(end);
+            }
+
+            if (match) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
      * 获取门店系数
      */
     private BigDecimal getStoreMultiplier(Long storeId) {
+        if (storeId == null) {
+            return BigDecimal.ONE;
+        }
         StorePricing pricing = storePricingMapper.selectOne(
                 new LambdaQueryWrapper<StorePricing>()
                         .eq(StorePricing::getStoreId, storeId)

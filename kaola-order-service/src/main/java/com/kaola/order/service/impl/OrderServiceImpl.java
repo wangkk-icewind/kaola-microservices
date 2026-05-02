@@ -8,6 +8,7 @@ import com.kaola.order.model.entity.OrderItem;
 import com.kaola.order.model.enums.OrderStatus;
 import com.kaola.order.model.vo.OrderItemVO;
 import com.kaola.order.model.vo.OrderVO;
+import com.kaola.order.client.StoreServiceClient;
 import com.kaola.order.mapper.OrderItemMapper;
 import com.kaola.order.mapper.OrderMapper;
 import com.kaola.order.service.MasseurCacheService;
@@ -27,10 +28,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 /**
  * 订单服务实现类
@@ -46,11 +51,9 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemMapper orderItemMapper;
     private final RestTemplate restTemplate;
     private final MasseurCacheService masseurCacheService;
+    private final StoreServiceClient storeServiceClient;
 
     private static final String PRODUCT_SERVICE_URL = "http://localhost:8085";
-
-// TODO: 待 store-service 创建后，通过 OpenFeign 获取门店信息
-    //     private final StoreRepository storeRepository;
 
     @Override
     @Transactional
@@ -78,6 +81,23 @@ public class OrderServiceImpl implements OrderService {
             order.setAppointmentTime(LocalTime.parse(dto.getAppointmentTime()));
         } else {
             order.setAppointmentTime(LocalTime.of(10, 0));
+        }
+
+        // 服务订单：提前检查技师时段冲突（防止重复预约同一时段）
+        if ("SERVICE".equals(dto.getOrderType())) {
+            for (OrderItemDTO itemDTO : dto.getItems()) {
+                if ("SERVICE".equals(itemDTO.getItemType()) && itemDTO.getMasseurId() != null) {
+                    int conflicts = orderRepository.countMasseurConflicts(
+                            itemDTO.getMasseurId(),
+                            order.getAppointmentDate(),
+                            order.getAppointmentTime()
+                    );
+                    if (conflicts > 0) {
+                        throw new RuntimeException("该技师在 " + order.getAppointmentDate()
+                                + " " + order.getAppointmentTime() + " 已被预约，请选择其他时段");
+                    }
+                }
+            }
         }
 
         orderRepository.insert(order);
@@ -138,10 +158,18 @@ public class OrderServiceImpl implements OrderService {
                     throw new RuntimeException("项目不存在: " + itemDTO.getProjectId());
                 }
 
-                // 获取项目价格和时长
+                // 获取项目基础价格
                 Object priceObj = projectInfo.get("price");
                 price = priceObj instanceof Number ?
                     new BigDecimal(priceObj.toString()) : BigDecimal.ZERO;
+
+                // 调用定价服务计算含等级/时段/门店系数的动态价格
+                BigDecimal dynamicPrice = calculateDynamicPrice(
+                        itemDTO.getProjectId(), itemDTO.getMasseurId(),
+                        dto.getStoreId(), dto.getAppointmentDate(), dto.getAppointmentTime());
+                if (dynamicPrice != null) {
+                    price = dynamicPrice;
+                }
                 orderItem.setPrice(price);
 
                 Object durationObj = projectInfo.get("duration");
@@ -409,6 +437,48 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
+     * 调用 product-service 计算含等级/时段/门店系数的动态价格
+     * 若调用失败则返回 null，调用方回退到基础价格
+     */
+    @SuppressWarnings("unchecked")
+    private BigDecimal calculateDynamicPrice(Long projectId, Long masseurId, Long storeId,
+                                              String appointmentDate, String appointmentTime) {
+        try {
+            if (projectId == null || appointmentDate == null || appointmentTime == null) {
+                return null;
+            }
+            String appointmentDateTime = appointmentDate + "T" + appointmentTime + ":00";
+
+            Map<String, Object> reqBody = new HashMap<>();
+            reqBody.put("projectId", projectId);
+            if (masseurId != null) reqBody.put("masseurId", masseurId);
+            if (storeId != null) reqBody.put("storeId", storeId);
+            reqBody.put("appointmentTime", appointmentDateTime);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(reqBody, headers);
+
+            ResponseEntity<Map<String, Object>> resp = restTemplate.exchange(
+                    PRODUCT_SERVICE_URL + "/admin/price/calculate",
+                    HttpMethod.POST,
+                    entity,
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            Map<String, Object> body = resp.getBody();
+            if (body != null && Integer.valueOf(0).equals(body.get("code"))) {
+                Map<String, Object> data = (Map<String, Object>) body.get("data");
+                if (data != null && data.get("finalPrice") != null) {
+                    return new BigDecimal(data.get("finalPrice").toString());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("动态价格计算失败，回退到基础价格. projectId={}, masseurId={}", projectId, masseurId, e);
+        }
+        return null;
+    }
+
+    /**
      * 获取项目信息（调用 product-service 真实数据）
      */
     private Map<String, Object> getProjectInfo(Long projectId) {
@@ -450,16 +520,11 @@ public class OrderServiceImpl implements OrderService {
                 return (Map<String, Object>) body.get("data");
             }
         } catch (Exception e) {
-            log.warn("调用 product-service 失败，使用模拟数据, productId: {}", productId, e);
+            log.error("调用 product-service 获取商品信息失败, productId: {}", productId, e);
         }
 
-        // 如果调用失败，返回模拟数据
-        Map<String, Object> productInfo = new java.util.HashMap<>();
-        productInfo.put("id", productId);
-        productInfo.put("name", "商品" + productId);
-        productInfo.put("price", 199);
-        productInfo.put("image", "https://example.com/product" + productId + ".jpg");
-        return productInfo;
+        // 无法获取商品信息时抛出异常，禁止静默降级
+        throw new RuntimeException("无法获取商品 " + productId + " 的价格信息，请检查 product-service 是否正常");
     }
 
     /**
@@ -471,29 +536,20 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * 获取门店名称
-     * TODO: 待store-service创建后，通过HTTP调用获取真实数据
+     * 获取门店名称（通过 Feign 调用 store-service 获取真实数据）
      */
     private String getStoreName(Long storeId) {
-        // 临时使用模拟数据
         if (storeId == null) {
             return "考拉推拿连锁店";
         }
-
-        // 根据storeId返回不同的门店名称
-        switch (storeId.intValue()) {
-            case 1:
-                return "考拉推拿·朝阳门店";
-            case 2:
-                return "考拉推拿·国贸门店";
-            case 3:
-                return "考拉推拿·三里屯门店";
-            case 4:
-                return "考拉推拿·西单门店";
-            case 5:
-                return "考拉推拿·中关村门店";
-            default:
-                return "考拉推拿连锁店";
+        try {
+            var result = storeServiceClient.getStoreDetail(storeId);
+            if (result != null && result.getCode() == 0 && result.getData() != null) {
+                return result.getData().getName();
+            }
+        } catch (Exception e) {
+            log.error("调用 store-service 获取门店 {} 名称失败", storeId, e);
         }
+        return "考拉推拿连锁店";
     }
 }

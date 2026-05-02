@@ -75,16 +75,19 @@ public interface MasseurMapper extends BaseMapper<Masseur> {
     List<Masseur> findByCategoryId(@Param("categoryId") Long categoryId);
 
     /**
-     * 根据门店ID和项目分类ID查询技师列表
+     * 根据门店ID和项目分类ID查询技师列表，按排序表权重排序，未配置的技师追加在末尾按评分降序
      */
-    @Select("SELECT DISTINCT m.* FROM t_masseur m " +
+    @Select("SELECT DISTINCT m.*, COALESCE(s.sort_order, 9999) AS effective_sort " +
+            "FROM t_masseur m " +
             "INNER JOIN masseur_project mp ON m.id = mp.masseur_id " +
             "INNER JOIN t_project p ON mp.project_id = p.id " +
+            "LEFT JOIN t_masseur_category_sort s ON s.masseur_id = m.id " +
+            "  AND s.store_id = #{storeId} AND s.category_id = #{categoryId} " +
             "WHERE m.store_id = #{storeId} " +
             "AND p.category_id = #{categoryId} " +
             "AND m.status = 1 AND m.deleted = 0 " +
             "AND p.deleted = 0 " +
-            "ORDER BY m.rating DESC")
+            "ORDER BY effective_sort ASC, m.rating DESC")
     List<Masseur> findByStoreIdAndCategoryId(@Param("storeId") Long storeId, @Param("categoryId") Long categoryId);
 
     /**

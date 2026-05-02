@@ -80,4 +80,10 @@ public class Coupon extends BaseEntity {
      */
     @TableField("status")
     private Integer status;
+
+    /**
+     * 适用客群 (0-全部 1-新客 2-老客)
+     */
+    @TableField("customer_type")
+    private Integer customerType;
 }

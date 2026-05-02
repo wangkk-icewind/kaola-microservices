@@ -18,6 +18,11 @@ public class PriceCalculationResult {
     private BigDecimal basePrice;
 
     /**
+     * 原价（划线价，项目基础价格，不含任何系数）
+     */
+    private BigDecimal originalPrice;
+
+    /**
      * 技师等级系数
      */
     private BigDecimal levelMultiplier;

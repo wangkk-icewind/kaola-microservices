@@ -1,23 +1,28 @@
 package com.kaola.masseur.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kaola.common.core.dto.Result;
 import com.kaola.common.model.vo.PageVO;
 import com.kaola.masseur.model.entity.Masseur;
+import com.kaola.masseur.model.entity.MasseurCategorySort;
 import com.kaola.masseur.model.entity.MasseurEarning;
+import com.kaola.masseur.mapper.MasseurCategorySortMapper;
 import com.kaola.masseur.mapper.MasseurMapper;
 import com.kaola.masseur.service.MasseurEarningService;
 import com.kaola.masseur.service.MasseurProjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Map;
 
 /**
@@ -33,6 +38,7 @@ import java.util.Map;
 public class AdminMasseurController {
 
     private final MasseurMapper masseurMapper;
+    private final MasseurCategorySortMapper masseurCategorySortMapper;
     private final MasseurEarningService masseurEarningService;
     private final MasseurProjectService masseurProjectService;
 
@@ -54,13 +60,14 @@ public class AdminMasseurController {
         Page<Masseur> page = new Page<>(current, pageSize);
         LambdaQueryWrapper<Masseur> wrapper = new LambdaQueryWrapper<>();
 
+        wrapper.eq(Masseur::getDeleted, 0);
+
         if (name != null && !name.trim().isEmpty()) {
             wrapper.like(Masseur::getName, name.trim());
         }
 
         if (storeId != null) {
-            // Note: Masseur entity doesn't have storeId in current model
-            // This would need to be added if store filtering is required
+            wrapper.eq(Masseur::getStoreId, storeId);
         }
 
         if (status != null) {
@@ -83,10 +90,10 @@ public class AdminMasseurController {
     public Result<List<Masseur>> getMasseursByStore(@PathVariable Long storeId) {
         log.info("根据门店获取技师列表, storeId: {}", storeId);
 
-        // Note: Current Masseur entity doesn't have storeId field
-        // Return all active masseurs for now
         LambdaQueryWrapper<Masseur> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Masseur::getStatus, 1)
+        wrapper.eq(Masseur::getDeleted, 0)
+               .eq(Masseur::getStoreId, storeId)
+               .eq(Masseur::getStatus, 1)
                .orderByDesc(Masseur::getRating);
 
         List<Masseur> masseurs = masseurMapper.selectList(wrapper);
@@ -208,6 +215,90 @@ public class AdminMasseurController {
         List<Long> projectIds = body.getOrDefault("projectIds", Collections.emptyList());
         masseurProjectService.setMasseurProjects(masseurId, projectIds);
         return Result.success(true);
+    }
+
+    // ==================== 分类排序 ====================
+
+    /**
+     * 获取门店+分类下的技师排序列表
+     */
+    @Operation(summary = "获取技师分类排序", description = "获取指定门店和分类下的技师排序配置")
+    @GetMapping("/category-sort")
+    public Result<List<Map<String, Object>>> getCategorySort(
+            @RequestParam Long storeId,
+            @RequestParam Long categoryId) {
+        log.info("获取技师分类排序, storeId: {}, categoryId: {}", storeId, categoryId);
+
+        // 获取该门店+分类下的所有技师（按当前排序）
+        List<Masseur> masseurs = masseurMapper.findByStoreIdAndCategoryId(storeId, categoryId);
+
+        // 查询已有排序配置
+        LambdaQueryWrapper<MasseurCategorySort> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(MasseurCategorySort::getStoreId, storeId)
+               .eq(MasseurCategorySort::getCategoryId, categoryId);
+        List<MasseurCategorySort> sortConfigs = masseurCategorySortMapper.selectList(wrapper);
+
+        // 合并：为每个技师附上当前 sort_order
+        List<Map<String, Object>> result = masseurs.stream().map(m -> {
+            int order = sortConfigs.stream()
+                    .filter(s -> s.getMasseurId().equals(m.getId()))
+                    .findFirst()
+                    .map(MasseurCategorySort::getSortOrder)
+                    .orElse(9999);
+            Map<String, Object> item = new java.util.LinkedHashMap<>();
+            item.put("masseurId", m.getId());
+            item.put("name", m.getName());
+            item.put("avatar", m.getAvatar());
+            item.put("level", m.getLevel());
+            item.put("rating", m.getRating());
+            item.put("sortOrder", order);
+            return item;
+        }).collect(java.util.stream.Collectors.toList());
+
+        return Result.success(result);
+    }
+
+    /**
+     * 批量保存技师分类排序（upsert）
+     */
+    @Operation(summary = "保存技师分类排序", description = "批量设置指定门店和分类下的技师排序")
+    @PostMapping("/category-sort")
+    public Result<Boolean> saveCategorySort(@RequestBody SaveCategorySortRequest req) {
+        log.info("保存技师分类排序, storeId: {}, categoryId: {}, items: {}",
+                req.getStoreId(), req.getCategoryId(), req.getItems().size());
+
+        for (SaveCategorySortRequest.SortItem item : req.getItems()) {
+            LambdaQueryWrapper<MasseurCategorySort> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(MasseurCategorySort::getStoreId, req.getStoreId())
+                   .eq(MasseurCategorySort::getCategoryId, req.getCategoryId())
+                   .eq(MasseurCategorySort::getMasseurId, item.getMasseurId());
+            MasseurCategorySort existing = masseurCategorySortMapper.selectOne(wrapper);
+            if (existing != null) {
+                existing.setSortOrder(item.getSortOrder());
+                masseurCategorySortMapper.updateById(existing);
+            } else {
+                MasseurCategorySort sort = new MasseurCategorySort();
+                sort.setStoreId(req.getStoreId());
+                sort.setCategoryId(req.getCategoryId());
+                sort.setMasseurId(item.getMasseurId());
+                sort.setSortOrder(item.getSortOrder());
+                masseurCategorySortMapper.insert(sort);
+            }
+        }
+        return Result.success(true);
+    }
+
+    @Data
+    static class SaveCategorySortRequest {
+        private Long storeId;
+        private Long categoryId;
+        private List<SortItem> items;
+
+        @Data
+        static class SortItem {
+            private Long masseurId;
+            private Integer sortOrder;
+        }
     }
 
     /**

@@ -69,4 +69,14 @@ public class StoreVO implements Serializable {
      * 技师数量
      */
     private Integer masseurCount;
+
+    /**
+     * 纬度
+     */
+    private BigDecimal latitude;
+
+    /**
+     * 经度
+     */
+    private BigDecimal longitude;
 }

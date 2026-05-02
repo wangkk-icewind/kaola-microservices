@@ -120,9 +120,9 @@ spring:
           filters:
             - StripPrefix=1
 
-        # Store Service 路由 - Admin Masseur (技师管理在store-service中)
-        - id: kaola-store-service-admin-masseur
-          uri: http://localhost:8083
+        # Masseur Service 路由 - Admin Masseur
+        - id: kaola-masseur-service-admin-masseur
+          uri: http://localhost:8084
           predicates:
             - Path=/api/admin/masseur/**
           filters:

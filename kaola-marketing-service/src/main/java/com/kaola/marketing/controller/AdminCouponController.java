@@ -2,7 +2,11 @@ package com.kaola.marketing.controller;
 
 import com.kaola.common.core.dto.PageVO;
 import com.kaola.common.core.dto.Result;
+import com.kaola.marketing.model.dto.DispatchRequest;
 import com.kaola.marketing.model.entity.Coupon;
+import com.kaola.marketing.model.entity.CouponDispatch;
+import com.kaola.marketing.model.vo.DispatchPreviewVO;
+import com.kaola.marketing.service.CouponDispatchService;
 import com.kaola.marketing.service.CouponService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 管理后台 - 优惠券管理接口
@@ -26,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminCouponController {
 
     private final CouponService couponService;
+    private final CouponDispatchService couponDispatchService;
 
     /**
      * 分页查询优惠券列表
@@ -126,5 +133,34 @@ public class AdminCouponController {
 
         boolean success = couponService.updateCouponStatus(id, status);
         return Result.success(success);
+    }
+
+    /**
+     * 预览发送目标人数
+     */
+    @Operation(summary = "预览发送目标人数", description = "根据规则预览符合条件的用户数量")
+    @PostMapping("/dispatch/preview")
+    public Result<DispatchPreviewVO> previewDispatch(@RequestBody DispatchRequest request) {
+        return Result.success(couponDispatchService.preview(request));
+    }
+
+    /**
+     * 执行优惠券发送
+     */
+    @Operation(summary = "执行优惠券发送", description = "按规则或指定手机号批量发送优惠券")
+    @PostMapping("/dispatch/execute")
+    public Result<Long> executeDispatch(@RequestBody DispatchRequest request) {
+        return Result.success(couponDispatchService.execute(request, "admin"));
+    }
+
+    /**
+     * 获取发送任务列表
+     */
+    @Operation(summary = "获取发送任务列表", description = "分页查询优惠券发送任务")
+    @GetMapping("/dispatch/list")
+    public Result<List<CouponDispatch>> getDispatchList(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return Result.success(couponDispatchService.listByPage(page, size));
     }
 }

@@ -40,6 +40,8 @@ public interface ProjectService {
      */
     List<ProjectVO> getProjectsByMasseur(Long masseurId);
 
+    List<ProjectVO> getProjectsByMasseur(Long masseurId, Long categoryId);
+
     /**
      * 计算价格
      *

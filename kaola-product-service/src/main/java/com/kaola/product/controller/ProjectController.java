@@ -60,7 +60,7 @@ public class ProjectController {
         return project != null ? Result.success(project) : Result.error("项目不存在");
     }
 
-    @Operation(summary = "获取项目列表", description = "根据分类或技师获取项目列表")
+    @Operation(summary = "获取项目列表", description = "根据分类或技师获取项目列表，支持同时按技师和分类过滤")
     @GetMapping("/list")
     public Result<List<ProjectVO>> getProjectList(
             @Parameter(description = "分类ID")
@@ -69,7 +69,7 @@ public class ProjectController {
             @RequestParam(required = false) Long masseurId) {
         List<ProjectVO> projects;
         if (masseurId != null) {
-            projects = projectService.getProjectsByMasseur(masseurId);
+            projects = projectService.getProjectsByMasseur(masseurId, categoryId);
         } else if (categoryId != null) {
             projects = projectService.getProjectsByCategory(categoryId);
         } else {

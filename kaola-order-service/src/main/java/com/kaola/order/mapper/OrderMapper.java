@@ -10,7 +10,9 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -75,4 +77,18 @@ public interface OrderMapper extends BaseMapper<Order> {
      */
     @Select("SELECT * FROM t_order WHERE store_id = #{storeId} AND deleted = 0 ORDER BY create_time DESC")
     IPage<Order> findByStoreId(Page<Order> page, @Param("storeId") Long storeId);
+
+    /**
+     * 检查技师在指定日期时段是否已有未取消的订单（用于防止重复预约）
+     */
+    @Select("SELECT COUNT(*) FROM t_order o " +
+            "INNER JOIN t_order_item oi ON o.id = oi.order_id " +
+            "WHERE oi.masseur_id = #{masseurId} " +
+            "AND o.appointment_date = #{date} " +
+            "AND o.appointment_time = #{time} " +
+            "AND o.status != 0 " +
+            "AND o.deleted = 0 AND oi.deleted = 0")
+    int countMasseurConflicts(@Param("masseurId") Long masseurId,
+                              @Param("date") LocalDate date,
+                              @Param("time") LocalTime time);
 }

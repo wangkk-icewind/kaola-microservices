@@ -2,6 +2,7 @@ package com.kaola.user.controller;
 
 import com.kaola.common.core.dto.Result;
 import com.kaola.user.model.dto.LoginDTO;
+import com.kaola.user.model.dto.PhoneLoginDTO;
 import com.kaola.user.model.dto.UserDTO;
 import com.kaola.user.model.vo.LoginVO;
 import com.kaola.user.model.vo.UserVO;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +23,7 @@ import jakarta.validation.constraints.NotBlank;
  *
  * @author Kaola Team
  */
+@Slf4j
 @Tag(name = "用户接口", description = "用户登录、信息管理等接口")
 @RestController
 @RequestMapping("/user")
@@ -41,6 +44,28 @@ public class UserController {
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO loginDTO) {
         LoginVO loginVO = userService.login(loginDTO.getCode());
         return Result.success(loginVO);
+    }
+
+    /**
+     * 手机号登录
+     */
+    @Operation(summary = "手机号登录", description = "通过手机号和验证码登录")
+    @PostMapping("/phone-login")
+    public Result<LoginVO> phoneLogin(@Valid @RequestBody PhoneLoginDTO dto) {
+        LoginVO loginVO = userService.phoneLogin(dto.getPhone(), dto.getCode());
+        return Result.success(loginVO);
+    }
+
+    /**
+     * 发送短信验证码
+     */
+    @Operation(summary = "发送验证码", description = "向手机号发送短信验证码")
+    @PostMapping("/send-code")
+    public Result<Boolean> sendVerifyCode(@RequestParam String phone) {
+        // Mock: 验证码固定为123456，真实环境调SMS服务
+        log.info("发送验证码到手机号: {}, Mock验证码: 123456", phone);
+        // TODO: 真实短信发送
+        return Result.success(true);
     }
 
     /**

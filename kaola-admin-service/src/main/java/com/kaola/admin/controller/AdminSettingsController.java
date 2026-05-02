@@ -1,5 +1,8 @@
 package com.kaola.admin.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kaola.admin.mapper.SystemSettingMapper;
+import com.kaola.admin.model.entity.SystemSetting;
 import com.kaola.common.core.dto.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -7,125 +10,102 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
-/**
- * 管理后台 - 系统配置管理接口
- *
- * @author Kaola Team
- */
 @Slf4j
-@Tag(name = "管理后台 - 系统配置管理", description = "系统配置的查询和修改接口")
+@Tag(name = "管理后台 - 系统配置管理")
 @RestController
 @RequestMapping("/admin/settings")
 @RequiredArgsConstructor
 public class AdminSettingsController {
 
-    /**
-     * 获取系统配置
-     */
-    @Operation(summary = "获取系统配置", description = "获取所有系统配置信息")
+    private final SystemSettingMapper systemSettingMapper;
+
+    @Operation(summary = "获取系统配置")
     @GetMapping("/get")
     public Result<Map<String, Object>> getSettings() {
-        log.info("获取系统配置");
-
-        Map<String, Object> settings = new HashMap<>();
-
-        // 基础设置
-        settings.put("siteName", "考拉运营管理系统");
-        settings.put("siteDescription", "高效、便捷的门店运营管理平台");
-        settings.put("contactPhone", "400-123-4567");
-        settings.put("contactEmail", "service@kaola.com");
-        settings.put("companyAddress", "北京市朝阳区建国路88号");
-
-        // 业务设置
-        settings.put("orderCancelTime", 30); // 订单自动取消时间（分钟）
-        settings.put("orderAutoCompleteTime", 24); // 订单自动完成时间（小时）
-        settings.put("commissionRate", 0.15); // 平台佣金比例
-        settings.put("withdrawalMinAmount", 100); // 最小提现金额
-        settings.put("withdrawalMaxAmount", 50000); // 最大提现金额
-
-        return Result.success(settings);
+        List<SystemSetting> all = systemSettingMapper.selectList(null);
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (SystemSetting s : all) {
+            result.put(s.getSettingKey(), s.getSettingValue());
+        }
+        // fallback hard-coded defaults if table empty
+        result.putIfAbsent("siteName", "考拉运营管理系统");
+        result.putIfAbsent("siteDescription", "高效、便捷的门店运营管理平台");
+        result.putIfAbsent("contactPhone", "400-123-4567");
+        result.putIfAbsent("contactEmail", "service@kaola.com");
+        result.putIfAbsent("companyAddress", "北京市朝阳区建国路88号");
+        result.putIfAbsent("orderCancelTime", 30);
+        result.putIfAbsent("orderAutoCompleteTime", 24);
+        result.putIfAbsent("commissionRate", 0.15);
+        return Result.success(result);
     }
 
-    /**
-     * 更新系统配置
-     */
-    @Operation(summary = "更新系统配置", description = "更新系统配置信息")
+    @Operation(summary = "更新系统配置")
     @PostMapping("/update")
     public Result<Boolean> updateSettings(@RequestBody Map<String, Object> settings) {
-        log.info("更新系统配置, settings: {}", settings);
-
-        // In a real application, you would save these settings to database
-        // For now, just return success
-
-        // Validate required fields
-        if (settings.containsKey("siteName") &&
-            (settings.get("siteName") == null || settings.get("siteName").toString().trim().isEmpty())) {
-            return Result.error("网站名称不能为空");
+        log.info("更新系统配置, keys: {}", settings.keySet());
+        for (Map.Entry<String, Object> entry : settings.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue() == null ? "" : entry.getValue().toString();
+            SystemSetting existing = systemSettingMapper.findByKey(key);
+            if (existing != null) {
+                existing.setSettingValue(value);
+                systemSettingMapper.updateById(existing);
+            } else {
+                SystemSetting newSetting = new SystemSetting();
+                newSetting.setSettingKey(key);
+                newSetting.setSettingValue(value);
+                newSetting.setSettingGroup("general");
+                systemSettingMapper.insert(newSetting);
+            }
         }
-
-        if (settings.containsKey("contactPhone") &&
-            (settings.get("contactPhone") == null || settings.get("contactPhone").toString().trim().isEmpty())) {
-            return Result.error("联系电话不能为空");
-        }
-
-        if (settings.containsKey("contactEmail") &&
-            (settings.get("contactEmail") == null || settings.get("contactEmail").toString().trim().isEmpty())) {
-            return Result.error("联系邮箱不能为空");
-        }
-
-        // TODO: Save settings to database or configuration file
-
         return Result.success(true);
     }
 
-    /**
-     * 获取业务设置
-     */
-    @Operation(summary = "获取业务设置", description = "获取业务相关配置")
+    @Operation(summary = "按分组获取配置")
+    @GetMapping("/group/{group}")
+    public Result<Map<String, String>> getByGroup(@PathVariable String group) {
+        List<SystemSetting> list = systemSettingMapper.findByGroup(group);
+        Map<String, String> result = list.stream()
+                .collect(Collectors.toMap(SystemSetting::getSettingKey, s -> s.getSettingValue() == null ? "" : s.getSettingValue()));
+        return Result.success(result);
+    }
+
+    @Operation(summary = "获取业务设置")
     @GetMapping("/business")
     public Result<Map<String, Object>> getBusinessSettings() {
-        log.info("获取业务设置");
-
-        Map<String, Object> businessSettings = new HashMap<>();
-        businessSettings.put("orderCancelTime", 30);
-        businessSettings.put("orderAutoCompleteTime", 24);
-        businessSettings.put("commissionRate", 0.15);
-        businessSettings.put("withdrawalMinAmount", 100);
-        businessSettings.put("withdrawalMaxAmount", 50000);
-        businessSettings.put("appointmentAdvanceTime", 2); // 预约提前时间（小时）
-        businessSettings.put("appointmentCancelTime", 6); // 取消预约提前时间（小时）
-
-        return Result.success(businessSettings);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("orderCancelTime", getIntValue("orderCancelTime", 30));
+        m.put("orderAutoCompleteTime", getIntValue("orderAutoCompleteTime", 24));
+        m.put("commissionRate", getDoubleValue("commissionRate", 0.15));
+        m.put("withdrawalMinAmount", getIntValue("withdrawalMinAmount", 100));
+        m.put("withdrawalMaxAmount", getIntValue("withdrawalMaxAmount", 50000));
+        m.put("appointmentAdvanceTime", getIntValue("appointmentAdvanceTime", 2));
+        m.put("appointmentCancelTime", getIntValue("appointmentCancelTime", 6));
+        return Result.success(m);
     }
 
-    /**
-     * 更新业务设置
-     */
-    @Operation(summary = "更新业务设置", description = "更新业务相关配置")
+    @Operation(summary = "更新业务设置")
     @PostMapping("/business/update")
     public Result<Boolean> updateBusinessSettings(@RequestBody Map<String, Object> settings) {
-        log.info("更新业务设置, settings: {}", settings);
+        return updateSettings(settings);
+    }
 
-        // Validate business settings
-        if (settings.containsKey("commissionRate")) {
-            Double rate = Double.valueOf(settings.get("commissionRate").toString());
-            if (rate < 0 || rate > 1) {
-                return Result.error("佣金比例必须在0-1之间");
-            }
+    private int getIntValue(String key, int defaultVal) {
+        SystemSetting s = systemSettingMapper.findByKey(key);
+        if (s != null && s.getSettingValue() != null && !s.getSettingValue().isEmpty()) {
+            try { return Integer.parseInt(s.getSettingValue()); } catch (Exception ignored) {}
         }
+        return defaultVal;
+    }
 
-        if (settings.containsKey("withdrawalMinAmount")) {
-            Integer minAmount = Integer.valueOf(settings.get("withdrawalMinAmount").toString());
-            if (minAmount < 0) {
-                return Result.error("最小提现金额不能为负数");
-            }
+    private double getDoubleValue(String key, double defaultVal) {
+        SystemSetting s = systemSettingMapper.findByKey(key);
+        if (s != null && s.getSettingValue() != null && !s.getSettingValue().isEmpty()) {
+            try { return Double.parseDouble(s.getSettingValue()); } catch (Exception ignored) {}
         }
-
-        // TODO: Save business settings to database or configuration file
-
-        return Result.success(true);
+        return defaultVal;
     }
 }

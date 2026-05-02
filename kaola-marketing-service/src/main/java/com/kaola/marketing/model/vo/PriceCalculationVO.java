@@ -24,7 +24,7 @@ public class PriceCalculationVO {
     private BigDecimal basePrice;
 
     @Schema(description = "技师等级系数", example = "1.20")
-    private BigDecimal masseurLevelMultiplier;
+    private BigDecimal levelMultiplier;
 
     @Schema(description = "时段系数", example = "1.20")
     private BigDecimal timeSlotMultiplier;
@@ -32,8 +32,11 @@ public class PriceCalculationVO {
     @Schema(description = "门店系数", example = "1.00")
     private BigDecimal storeMultiplier;
 
-    @Schema(description = "原价（基础价格 × 技师系数 × 时段系数 × 门店系数）", example = "270.72")
+    @Schema(description = "原价（项目基础价格，划线价，不含任何系数）", example = "198.00")
     private BigDecimal originalPrice;
+
+    @Schema(description = "服务价格（基础价格 × 所有系数）", example = "237.60")
+    private BigDecimal servicePrice;
 
     @Schema(description = "加钟费用", example = "93.90")
     private BigDecimal extraPrice;

@@ -59,6 +59,7 @@ public class PriceCalculationServiceImpl implements PriceCalculationService {
         }
         BigDecimal basePrice = project.getBasePrice();
         result.setBasePrice(basePrice);
+        result.setOriginalPrice(basePrice); // 原价 = 项目基础价格，不叠加任何系数
         result.setDuration(request.getDuration() != null ? request.getDuration() : project.getDuration());
 
         // 2. 获取技师等级系数

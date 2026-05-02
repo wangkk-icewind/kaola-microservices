@@ -56,7 +56,7 @@
 
         <!-- 数据库 -->
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
-        <mysql.version>8.2.0</mysql.version>
+        <mysql.version>8.0.33</mysql.version>
 
         <!-- 工具 -->
         <lombok.version>edge-SNAPSHOT</lombok.version>
