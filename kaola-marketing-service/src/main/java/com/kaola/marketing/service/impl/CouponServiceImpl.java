@@ -232,7 +232,7 @@ public class CouponServiceImpl implements CouponService {
         UserCoupon userCoupon = new UserCoupon();
         userCoupon.setUserId(userId);
         userCoupon.setCouponId(couponId);
-        userCoupon.setStatus(1); // 未使用
+        userCoupon.setStatus(0); // 未使用 (0=未使用 1=已使用 2=已过期)
 
         int rows = userCouponMapper.insert(userCoupon);
         return rows > 0;
@@ -245,7 +245,7 @@ public class CouponServiceImpl implements CouponService {
         // 1. 查询用户所有未使用的优惠券
         LambdaQueryWrapper<UserCoupon> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(UserCoupon::getUserId, request.getUserId())
-                .eq(UserCoupon::getStatus, 1); // 未使用
+                .eq(UserCoupon::getStatus, 0); // 未使用 (0=未使用 1=已使用 2=已过期)
 
         List<UserCoupon> userCoupons = userCouponMapper.selectList(wrapper);
 
@@ -311,7 +311,7 @@ public class CouponServiceImpl implements CouponService {
             return response;
         }
 
-        if (userCoupon.getStatus() != 1) {
+        if (userCoupon.getStatus() != 0) {
             response.setValid(false);
             response.setReason("优惠券已使用或已过期");
             return response;

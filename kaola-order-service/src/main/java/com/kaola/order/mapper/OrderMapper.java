@@ -91,4 +91,21 @@ public interface OrderMapper extends BaseMapper<Order> {
     int countMasseurConflicts(@Param("masseurId") Long masseurId,
                               @Param("date") LocalDate date,
                               @Param("time") LocalTime time);
+
+    /**
+     * 检查技师在指定日期时段是否有时间重叠的订单（基于服务时长，防止同时段重复预约）
+     * 重叠条件：existing_start < new_end AND existing_end > new_start
+     */
+    @Select("SELECT COUNT(*) FROM t_order o " +
+            "INNER JOIN t_order_item oi ON o.id = oi.order_id " +
+            "WHERE oi.masseur_id = #{masseurId} " +
+            "AND o.appointment_date = #{date} " +
+            "AND o.status != 0 " +
+            "AND o.deleted = 0 AND oi.deleted = 0 " +
+            "AND o.appointment_time < ADDTIME(#{startTime}, SEC_TO_TIME(#{durationMinutes} * 60)) " +
+            "AND ADDTIME(o.appointment_time, SEC_TO_TIME(IFNULL(oi.duration, 60) * 60)) > #{startTime}")
+    int countMasseurOverlaps(@Param("masseurId") Long masseurId,
+                             @Param("date") LocalDate date,
+                             @Param("startTime") LocalTime startTime,
+                             @Param("durationMinutes") int durationMinutes);
 }

@@ -54,6 +54,7 @@ public class OrderServiceImpl implements OrderService {
     private final StoreServiceClient storeServiceClient;
 
     private static final String PRODUCT_SERVICE_URL = "http://localhost:8085";
+    private static final String MARKETING_SERVICE_URL = "http://localhost:8092";
 
     @Override
     @Transactional
@@ -83,18 +84,29 @@ public class OrderServiceImpl implements OrderService {
             order.setAppointmentTime(LocalTime.of(10, 0));
         }
 
-        // 服务订单：提前检查技师时段冲突（防止重复预约同一时段）
+        // 服务订单：检查技师时段是否重叠（基于服务时长，防止同时段重复预约）
         if ("SERVICE".equals(dto.getOrderType())) {
             for (OrderItemDTO itemDTO : dto.getItems()) {
                 if ("SERVICE".equals(itemDTO.getItemType()) && itemDTO.getMasseurId() != null) {
-                    int conflicts = orderRepository.countMasseurConflicts(
+                    // 获取项目时长用于重叠判断
+                    int durationMinutes = 60; // 默认60分钟
+                    try {
+                        Map<String, Object> projectInfo = getProjectInfo(itemDTO.getProjectId());
+                        if (projectInfo != null && projectInfo.get("duration") instanceof Number) {
+                            durationMinutes = ((Number) projectInfo.get("duration")).intValue();
+                        }
+                    } catch (Exception e) {
+                        log.warn("获取项目时长失败，使用默认60分钟. projectId={}", itemDTO.getProjectId());
+                    }
+                    int conflicts = orderRepository.countMasseurOverlaps(
                             itemDTO.getMasseurId(),
                             order.getAppointmentDate(),
-                            order.getAppointmentTime()
+                            order.getAppointmentTime(),
+                            durationMinutes
                     );
                     if (conflicts > 0) {
                         throw new RuntimeException("该技师在 " + order.getAppointmentDate()
-                                + " " + order.getAppointmentTime() + " 已被预约，请选择其他时段");
+                                + " " + order.getAppointmentTime() + " 前后时段已有预约，请选择其他时段");
                     }
                 }
             }
@@ -208,6 +220,14 @@ public class OrderServiceImpl implements OrderService {
             log.info("设置订单类型: orderId={}, orderType={}", order.getId(), orderType);
         }
         order.setTotalAmount(totalAmount);
+
+        // 优惠券折扣：调用 marketing-service 验证并获取折扣金额
+        if (dto.getCouponId() != null) {
+            BigDecimal discountAmount = validateAndGetDiscount(dto.getCouponId(), userId, totalAmount, dto.getStoreId(),
+                    dto.getItems() == null ? null : dto.getItems().stream()
+                            .map(OrderItemDTO::getProjectId).filter(id -> id != null).collect(Collectors.toList()));
+            order.setDiscountAmount(discountAmount);
+        }
         order.setPayAmount(totalAmount.subtract(order.getDiscountAmount()));
         log.info("更新订单前: orderId={}, orderType={}, totalAmount={}", order.getId(), order.getOrderType(), totalAmount);
         orderRepository.updateById(order);
@@ -437,7 +457,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * 调用 product-service 计算含等级/时段/门店系数的动态价格
+     * 调用 marketing-service 计算含等级/时段/门店系数的动态价格（服务卖价）
      * 若调用失败则返回 null，调用方回退到基础价格
      */
     @SuppressWarnings("unchecked")
@@ -447,29 +467,35 @@ public class OrderServiceImpl implements OrderService {
             if (projectId == null || appointmentDate == null || appointmentTime == null) {
                 return null;
             }
-            String appointmentDateTime = appointmentDate + "T" + appointmentTime + ":00";
+            // 获取技师等级
+            int masseurLevel = 2; // 默认中级
+            if (masseurId != null) {
+                Map<String, Object> masseurInfo = getMasseurInfo(masseurId);
+                if (masseurInfo != null && masseurInfo.get("level") instanceof Number) {
+                    masseurLevel = ((Number) masseurInfo.get("level")).intValue();
+                }
+            }
 
+            String appointmentDateTime = appointmentDate + "T" + appointmentTime + ":00";
             Map<String, Object> reqBody = new HashMap<>();
             reqBody.put("projectId", projectId);
-            if (masseurId != null) reqBody.put("masseurId", masseurId);
-            if (storeId != null) reqBody.put("storeId", storeId);
+            reqBody.put("masseurLevel", masseurLevel);
+            reqBody.put("storeId", storeId != null ? storeId : 1L);
             reqBody.put("appointmentTime", appointmentDateTime);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(reqBody, headers);
-
             ResponseEntity<Map<String, Object>> resp = restTemplate.exchange(
-                    PRODUCT_SERVICE_URL + "/admin/price/calculate",
+                    MARKETING_SERVICE_URL + "/price/calculate",
                     HttpMethod.POST,
-                    entity,
+                    new HttpEntity<>(reqBody, headers),
                     new ParameterizedTypeReference<Map<String, Object>>() {}
             );
             Map<String, Object> body = resp.getBody();
             if (body != null && Integer.valueOf(0).equals(body.get("code"))) {
                 Map<String, Object> data = (Map<String, Object>) body.get("data");
-                if (data != null && data.get("finalPrice") != null) {
-                    return new BigDecimal(data.get("finalPrice").toString());
+                if (data != null && data.get("servicePrice") != null) {
+                    return new BigDecimal(data.get("servicePrice").toString());
                 }
             }
         } catch (Exception e) {
@@ -533,6 +559,41 @@ public class OrderServiceImpl implements OrderService {
     private Map<String, Object> getMasseurInfo(Long masseurId) {
         // 使用缓存服务获取技师信息（自带Feign调用、Redis缓存、降级策略）
         return masseurCacheService.getMasseurInfo(masseurId);
+    }
+
+    /**
+     * 调用 marketing-service 验证优惠券，返回折扣金额（失败时返回ZERO）
+     */
+    @SuppressWarnings("unchecked")
+    private BigDecimal validateAndGetDiscount(Long userCouponId, Long userId, BigDecimal orderAmount,
+                                               Long storeId, List<Long> projectIds) {
+        try {
+            Map<String, Object> reqBody = new HashMap<>();
+            reqBody.put("userCouponId", userCouponId);
+            reqBody.put("userId", userId);
+            reqBody.put("orderAmount", orderAmount);
+            if (storeId != null) reqBody.put("storeId", storeId);
+            if (projectIds != null && !projectIds.isEmpty()) reqBody.put("projectIds", projectIds);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            ResponseEntity<Map<String, Object>> resp = restTemplate.exchange(
+                    "http://localhost:8092/coupon/validate",
+                    HttpMethod.POST,
+                    new HttpEntity<>(reqBody, headers),
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+            Map<String, Object> body = resp.getBody();
+            if (body != null && Integer.valueOf(0).equals(body.get("code"))) {
+                Map<String, Object> data = (Map<String, Object>) body.get("data");
+                if (data != null && Boolean.TRUE.equals(data.get("valid")) && data.get("discountAmount") != null) {
+                    return new BigDecimal(data.get("discountAmount").toString());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("优惠券验证失败，不应用折扣. userCouponId={}", userCouponId, e);
+        }
+        return BigDecimal.ZERO;
     }
 
     /**
