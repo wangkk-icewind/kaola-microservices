@@ -65,6 +65,7 @@ public class AdminOrderController {
         private BigDecimal totalAmount;
         private BigDecimal discountAmount;
         private BigDecimal payAmount;
+        private Integer duration;
         private Integer payType;
         private Integer status;
         private String remark;
@@ -178,6 +179,10 @@ public class AdminOrderController {
                 vo.setMasseurName(masseurNameMap.getOrDefault(item.getMasseurId(), ""));
                 vo.setProjectId(item.getProjectId());
                 vo.setProjectName(projectNameMap.getOrDefault(item.getProjectId(), ""));
+                int dur = 0;
+                if (item.getDuration() != null) dur += item.getDuration();
+                if (item.getExtraDuration() != null) dur += item.getExtraDuration();
+                vo.setDuration(dur > 0 ? dur : null);
             }
             return vo;
         }).collect(Collectors.toList());
@@ -276,6 +281,12 @@ public class AdminOrderController {
             vo.setAppointmentTime(order.getAppointmentDate() + "T" + order.getAppointmentTime());
         } else if (order.getAppointmentDate() != null) {
             vo.setAppointmentTime(order.getAppointmentDate() + "T00:00:00");
+        }
+        if (item != null) {
+            int dur = 0;
+            if (item.getDuration() != null) dur += item.getDuration();
+            if (item.getExtraDuration() != null) dur += item.getExtraDuration();
+            vo.setDuration(dur > 0 ? dur : null);
         }
 
         return Result.success(vo);
