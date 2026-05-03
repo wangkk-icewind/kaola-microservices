@@ -1,6 +1,9 @@
 server:
   port: 8082
 
+jwt:
+  secret: kaola-massage-secret-key-2024-for-admin-authentication
+
 spring:
   application:
     name: kaola-user-service
