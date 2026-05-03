@@ -27,4 +27,13 @@ public interface AdminUserService extends IService<AdminUser> {
      * @return 管理员信息
      */
     AdminUser getByUsername(String username);
+
+    /**
+     * 修改密码
+     *
+     * @param userId      管理员ID
+     * @param oldPassword 旧密码
+     * @param newPassword 新密码
+     */
+    void updatePassword(Long userId, String oldPassword, String newPassword);
 }

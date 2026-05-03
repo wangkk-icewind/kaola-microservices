@@ -69,9 +69,57 @@ public class ProductServiceImpl implements ProductService {
     public List<Product> getAllProducts() {
         log.info("获取所有商品列表");
         LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Product::getStatus, 1) // 只返回上架的商品
+        wrapper.eq(Product::getStatus, 1)
                 .orderByAsc(Product::getSortOrder)
                 .orderByDesc(Product::getCreateTime);
         return productRepository.selectList(wrapper);
+    }
+
+    @Override
+    public List<Product> getAdminProductList(String type, Integer status, Integer isRecommended) {
+        log.info("管理后台获取商品列表, type: {}, status: {}, isRecommended: {}", type, status, isRecommended);
+        LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
+        if (type != null && !type.isEmpty()) {
+            wrapper.eq(Product::getType, type);
+        }
+        if (status != null) {
+            wrapper.eq(Product::getStatus, status);
+        }
+        if (isRecommended != null) {
+            wrapper.eq(Product::getIsRecommended, isRecommended);
+        }
+        wrapper.orderByAsc(Product::getSortOrder).orderByDesc(Product::getCreateTime);
+        return productRepository.selectList(wrapper);
+    }
+
+    @Override
+    public Product createProduct(Product product) {
+        log.info("创建商品, name: {}", product.getName());
+        if (product.getStatus() == null) product.setStatus(1);
+        if (product.getSortOrder() == null) product.setSortOrder(100);
+        productRepository.insert(product);
+        return product;
+    }
+
+    @Override
+    public boolean updateProduct(Long id, Product product) {
+        log.info("更新商品, id: {}", id);
+        product.setId(id);
+        return productRepository.updateById(product) > 0;
+    }
+
+    @Override
+    public boolean deleteProduct(Long id) {
+        log.info("删除商品, id: {}", id);
+        return productRepository.deleteById(id) > 0;
+    }
+
+    @Override
+    public boolean updateProductStatus(Long id, Integer status) {
+        log.info("更新商品状态, id: {}, status: {}", id, status);
+        Product product = productRepository.selectById(id);
+        if (product == null) throw new RuntimeException("商品不存在");
+        product.setStatus(status);
+        return productRepository.updateById(product) > 0;
     }
 }

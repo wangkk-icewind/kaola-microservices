@@ -38,6 +38,7 @@ spring:
 
 mybatis-plus:
   type-aliases-package: com.kaola.schedule.model.entity
+  mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

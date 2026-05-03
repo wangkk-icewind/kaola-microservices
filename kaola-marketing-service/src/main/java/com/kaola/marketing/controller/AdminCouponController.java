@@ -124,11 +124,10 @@ public class AdminCouponController {
     @Operation(summary = "更新优惠券状态", description = "启用或禁用优惠券")
     @PutMapping("/updateStatus")
     public Result<Boolean> updateCouponStatus(
-            @Parameter(description = "优惠券ID", required = true)
-            @RequestParam Long id,
-            @Parameter(description = "状态 (0-禁用 1-启用)", required = true)
-            @RequestParam Integer status) {
+            @RequestBody java.util.Map<String, Object> body) {
 
+        Long id = body.get("id") instanceof Number ? ((Number) body.get("id")).longValue() : null;
+        Integer status = body.get("status") instanceof Number ? ((Number) body.get("status")).intValue() : null;
         log.info("更新优惠券状态, id: {}, status: {}", id, status);
 
         boolean success = couponService.updateCouponStatus(id, status);

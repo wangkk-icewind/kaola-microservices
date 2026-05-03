@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaola.masseur.mapper.MasseurMapper">
+
+    <select id="findByStoreIdAndCategoryId" resultType="com.kaola.masseur.model.entity.Masseur">
+        SELECT DISTINCT m.*
+        FROM t_masseur m
+        JOIN masseur_project mp ON mp.masseur_id = m.id AND mp.deleted = 0
+        JOIN t_project p ON p.id = mp.project_id AND p.category_id = #{categoryId} AND p.deleted = 0
+        WHERE m.store_id = #{storeId}
+          AND m.deleted = 0
+          AND m.status = 1
+        ORDER BY m.rating DESC
+    </select>
+
+</mapper>

@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 商品控制器 - 用户端API
@@ -60,11 +61,73 @@ public class ProductController {
         return Result.success(product);
     }
 
-    @Operation(summary = "获取所有商品列表", description = "返回所有上架的商品（不区分类型）")
+    @Operation(summary = "获取所有商品列表", description = "返回商品列表，支持过滤")
     @GetMapping("/list")
-    public Result<List<Product>> getAllProducts() {
-        log.info("API调用: 获取所有商品列表");
-        List<Product> products = productService.getAllProducts();
+    public Result<List<Product>> getAllProducts(
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) Integer isRecommended) {
+        log.info("API调用: 获取商品列表, type: {}, status: {}, isRecommended: {}", type, status, isRecommended);
+        if (type == null && status == null && isRecommended == null) {
+            List<Product> products = productService.getAllProducts();
+            return Result.success(products);
+        }
+        List<Product> products = productService.getAdminProductList(type, status, isRecommended);
         return Result.success(products);
+    }
+
+    // ========== 管理后台接口 ==========
+
+    @Operation(summary = "创建商品", description = "管理后台新建商品")
+    @PostMapping
+    public Result<Product> createProduct(@RequestBody Product product) {
+        log.info("API调用: 创建商品, name: {}", product.getName());
+        try {
+            Product created = productService.createProduct(product);
+            return Result.success(created);
+        } catch (Exception e) {
+            log.error("创建商品失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "更新商品", description = "管理后台修改商品")
+    @PutMapping("/{id}")
+    public Result<Boolean> updateProduct(@PathVariable Long id, @RequestBody Product product) {
+        log.info("API调用: 更新商品, id: {}", id);
+        try {
+            boolean success = productService.updateProduct(id, product);
+            return success ? Result.success(true) : Result.error("更新失败");
+        } catch (Exception e) {
+            log.error("更新商品失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "删除商品", description = "管理后台删除商品")
+    @DeleteMapping("/{id}")
+    public Result<Boolean> deleteProduct(@PathVariable Long id) {
+        log.info("API调用: 删除商品, id: {}", id);
+        try {
+            boolean success = productService.deleteProduct(id);
+            return success ? Result.success(true) : Result.error("删除失败");
+        } catch (Exception e) {
+            log.error("删除商品失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "更新商品状态", description = "管理后台上架/下架商品")
+    @PutMapping("/{id}/status")
+    public Result<Boolean> updateProductStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
+        Integer status = body.get("status");
+        log.info("API调用: 更新商品状态, id: {}, status: {}", id, status);
+        try {
+            boolean success = productService.updateProductStatus(id, status);
+            return success ? Result.success(true) : Result.error("更新失败");
+        } catch (Exception e) {
+            log.error("更新商品状态失败", e);
+            return Result.error(e.getMessage());
+        }
     }
 }

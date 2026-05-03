@@ -52,6 +52,12 @@ public class StorePricingServiceImpl implements StorePricingService {
     }
 
     @Override
+    public StorePricing getByStoreId(Long storeId) {
+        log.info("根据门店ID获取门店价格系数配置, storeId: {}", storeId);
+        return storePricingRepository.findByStoreId(storeId);
+    }
+
+    @Override
     @Transactional
     public boolean create(StorePricing pricing) {
         log.info("创建门店价格系数配置, pricing: {}", pricing);

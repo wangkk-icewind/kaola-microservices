@@ -22,19 +22,19 @@ public interface ScheduleMapper extends BaseMapper<Schedule> {
     /**
      * 根据技师ID和日期查询排班
      */
-    @Select("SELECT * FROM t_schedule WHERE masseur_id = #{masseurId} AND schedule_date = #{date} AND deleted = 0")
+    @Select("SELECT * FROM t_schedule WHERE masseur_id = #{masseurId} AND date = #{date} AND deleted = 0")
     List<Schedule> findByMasseurIdAndDate(@Param("masseurId") Long masseurId, @Param("date") LocalDate date);
 
     /**
      * 查询技师某天可用时段
      */
-    @Select("SELECT * FROM t_schedule WHERE masseur_id = #{masseurId} AND schedule_date = #{date} AND status = 1 AND deleted = 0")
+    @Select("SELECT * FROM t_schedule WHERE masseur_id = #{masseurId} AND date = #{date} AND status = 1 AND deleted = 0")
     List<Schedule> findAvailableSlots(@Param("masseurId") Long masseurId, @Param("date") LocalDate date);
 
     /**
      * 查询指定时段是否可用
      */
-    @Select("SELECT * FROM t_schedule WHERE masseur_id = #{masseurId} AND schedule_date = #{date} " +
+    @Select("SELECT * FROM t_schedule WHERE masseur_id = #{masseurId} AND date = #{date} " +
             "AND start_time = #{startTime} AND status = 1 AND deleted = 0")
     Schedule findAvailableSlot(@Param("masseurId") Long masseurId, @Param("date") LocalDate date, @Param("startTime") LocalTime startTime);
 

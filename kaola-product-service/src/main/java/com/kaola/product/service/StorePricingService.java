@@ -43,6 +43,14 @@ public interface StorePricingService {
     BigDecimal getMultiplierByStoreId(Long storeId);
 
     /**
+     * 根据门店ID获取门店价格系数配置
+     *
+     * @param storeId 门店ID
+     * @return 配置信息，不存在则返回null
+     */
+    StorePricing getByStoreId(Long storeId);
+
+    /**
      * 创建配置
      *
      * @param pricing 配置信息

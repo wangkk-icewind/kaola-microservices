@@ -1,6 +1,9 @@
 server:
   port: 8090
 
+jwt:
+  secret: kaola-massage-secret-key-2024-for-admin-authentication
+
 spring:
   application:
     name: kaola-gateway
@@ -128,7 +131,15 @@ spring:
           filters:
             - StripPrefix=1
 
-        # Product Service 路由 - Admin Product (商品管理)
+        # Product Service 路由 - Admin Product 基础路径 (POST /api/admin/product)
+        - id: kaola-product-service-admin-product-base
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/admin/product
+          filters:
+            - RewritePath=/api/admin/product, /product
+
+        # Product Service 路由 - Admin Product 子路径 (商品管理)
         - id: kaola-product-service-admin-product
           uri: http://localhost:8085
           predicates:

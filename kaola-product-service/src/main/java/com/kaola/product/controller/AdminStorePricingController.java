@@ -59,6 +59,17 @@ public class AdminStorePricingController {
     }
 
     /**
+     * 根据门店ID获取配置
+     */
+    @Operation(summary = "根据门店ID获取配置", description = "根据门店ID获取门店价格系数配置")
+    @GetMapping("/by-store/{storeId}")
+    public Result<StorePricing> getByStoreId(@PathVariable Long storeId) {
+        log.info("根据门店ID获取门店价格系数配置, storeId: {}", storeId);
+        StorePricing pricing = storePricingService.getByStoreId(storeId);
+        return Result.success(pricing);
+    }
+
+    /**
      * 获取配置详情
      */
     @Operation(summary = "获取配置详情", description = "根据ID获取配置详情")

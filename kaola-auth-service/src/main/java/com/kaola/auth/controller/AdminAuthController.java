@@ -59,6 +59,30 @@ public class AdminAuthController {
     }
 
     /**
+     * 修改密码
+     */
+    @Operation(summary = "修改密码", description = "修改当前管理员密码")
+    @PostMapping("/updatePassword")
+    public Result<Boolean> updatePassword(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, String> body) {
+        Long userId = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            userId = jwtUtil.getUserIdFromToken(authHeader.substring(7));
+        }
+        if (userId == null) {
+            return Result.error("未登录");
+        }
+        String oldPassword = body.get("oldPassword");
+        String newPassword = body.get("newPassword");
+        if (oldPassword == null || newPassword == null) {
+            return Result.error("密码不能为空");
+        }
+        adminUserService.updatePassword(userId, oldPassword, newPassword);
+        return Result.success(true);
+    }
+
+    /**
      * 获取当前用户信息
      */
     @Operation(summary = "获取当前用户信息", description = "获取已登录管理员的信息")

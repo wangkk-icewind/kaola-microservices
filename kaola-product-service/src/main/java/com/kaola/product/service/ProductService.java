@@ -46,4 +46,29 @@ public interface ProductService {
      * @return 所有商品列表
      */
     List<Product> getAllProducts();
+
+    /**
+     * 管理后台 - 获取商品列表（支持过滤）
+     */
+    List<Product> getAdminProductList(String type, Integer status, Integer isRecommended);
+
+    /**
+     * 创建商品
+     */
+    Product createProduct(Product product);
+
+    /**
+     * 更新商品
+     */
+    boolean updateProduct(Long id, Product product);
+
+    /**
+     * 删除商品（逻辑删除）
+     */
+    boolean deleteProduct(Long id);
+
+    /**
+     * 更新商品状态
+     */
+    boolean updateProductStatus(Long id, Integer status);
 }

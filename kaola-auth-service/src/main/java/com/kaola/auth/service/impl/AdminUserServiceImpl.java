@@ -102,6 +102,19 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
             .eq(AdminUser::getUsername, username));
     }
 
+    @Override
+    public void updatePassword(Long userId, String oldPassword, String newPassword) {
+        AdminUser user = getById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new BusinessException("旧密码不正确");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        updateById(user);
+    }
+
     /**
      * 加密密码
      */
