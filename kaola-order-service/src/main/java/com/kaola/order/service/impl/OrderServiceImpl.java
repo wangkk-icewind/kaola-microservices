@@ -84,8 +84,15 @@ public class OrderServiceImpl implements OrderService {
             order.setAppointmentTime(LocalTime.of(10, 0));
         }
 
-        // 服务订单：检查技师时段是否重叠（基于服务时长，防止同时段重复预约）
+        // 服务订单：校验必需字段并检查技师时段是否重叠
         if ("SERVICE".equals(dto.getOrderType())) {
+            for (OrderItemDTO itemDTO : dto.getItems()) {
+                if ("SERVICE".equals(itemDTO.getItemType())) {
+                    if (itemDTO.getMasseurId() == null) {
+                        throw new RuntimeException("服务订单必须指定技师");
+                    }
+                }
+            }
             for (OrderItemDTO itemDTO : dto.getItems()) {
                 if ("SERVICE".equals(itemDTO.getItemType()) && itemDTO.getMasseurId() != null) {
                     // 获取项目时长用于重叠判断
@@ -473,6 +480,9 @@ public class OrderServiceImpl implements OrderService {
                 Map<String, Object> masseurInfo = getMasseurInfo(masseurId);
                 if (masseurInfo != null && masseurInfo.get("level") instanceof Number) {
                     masseurLevel = ((Number) masseurInfo.get("level")).intValue();
+                    log.info("获取技师等级成功: masseurId={}, level={}", masseurId, masseurLevel);
+                } else {
+                    log.warn("技师等级获取失败，使用默认等级2: masseurId={}, masseurInfo={}", masseurId, masseurInfo);
                 }
             }
 

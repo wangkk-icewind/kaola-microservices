@@ -102,6 +102,7 @@ public class MasseurCacheService {
         defaultInfo.put("id", masseurId);
         defaultInfo.put("name", "技师" + masseurId + "号");
         defaultInfo.put("avatar", "https://example.com/avatar/default.jpg");
+        defaultInfo.put("level", 2); // 降级时使用中级倍率（避免计价偏低）
         defaultInfo.put("status", 1);
         return defaultInfo;
     }

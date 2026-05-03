@@ -21,6 +21,14 @@ public interface UserService {
     LoginVO login(String code);
 
     /**
+     * 发送短信验证码（存入Redis，TTL=5分钟）
+     *
+     * @param phone 手机号
+     * @return 是否发送成功
+     */
+    boolean sendVerifyCode(String phone);
+
+    /**
      * 手机号登录
      *
      * @param phone      手机号

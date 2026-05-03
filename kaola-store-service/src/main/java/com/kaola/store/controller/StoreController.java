@@ -74,6 +74,9 @@ public class StoreController {
             @Parameter(description = "门店ID", required = true)
             @PathVariable @NotNull(message = "门店ID不能为空") Long id) {
         StoreVO store = storeService.getStoreDetail(id);
+        if (store == null) {
+            return Result.error("门店不存在");
+        }
         return Result.success(store);
     }
 

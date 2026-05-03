@@ -62,10 +62,8 @@ public class UserController {
     @Operation(summary = "发送验证码", description = "向手机号发送短信验证码")
     @PostMapping("/send-code")
     public Result<Boolean> sendVerifyCode(@RequestParam String phone) {
-        // Mock: 验证码固定为123456，真实环境调SMS服务
-        log.info("发送验证码到手机号: {}, Mock验证码: 123456", phone);
-        // TODO: 真实短信发送
-        return Result.success(true);
+        boolean sent = userService.sendVerifyCode(phone);
+        return Result.success(sent);
     }
 
     /**

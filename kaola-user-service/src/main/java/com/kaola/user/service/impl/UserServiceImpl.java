@@ -13,9 +13,11 @@ import com.kaola.user.model.vo.UserVO;
 import com.kaola.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -27,6 +29,12 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final SystemSettingMapper systemSettingMapper;
     private final RestTemplate restTemplate;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String SMS_CODE_KEY_PREFIX = "sms:code:";
+    private static final Duration SMS_CODE_TTL = Duration.ofMinutes(5);
+    // Mock验证码（仅在无短信服务时使用）
+    private static final String MOCK_SMS_CODE = "123456";
 
     @Override
     public LoginVO login(String code) {
@@ -65,16 +73,32 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public boolean sendVerifyCode(String phone) {
+        log.info("发送验证码, phone: {}", phone);
+        // 存入Redis（Mock环境固定为123456，真实环境调用短信服务后存入随机码）
+        redisTemplate.opsForValue().set(SMS_CODE_KEY_PREFIX + phone, MOCK_SMS_CODE, SMS_CODE_TTL);
+        log.info("验证码已存入Redis: phone={}, code={}, ttl={}min", phone, MOCK_SMS_CODE, SMS_CODE_TTL.toMinutes());
+        return true;
+    }
+
+    @Override
     public LoginVO phoneLogin(String phone, String verifyCode) {
         log.info("手机号登录, phone: {}", phone);
 
-        // 验证码校验: 当前Mock实现，任何非空验证码均通过（真实环境需验证Redis中的code）
         if (verifyCode == null || verifyCode.trim().isEmpty()) {
             throw new RuntimeException("验证码不能为空");
         }
-        // TODO: 真实环境从Redis校验验证码
-        // String cachedCode = redisTemplate.opsForValue().get("sms:code:" + phone);
-        // if (!verifyCode.equals(cachedCode)) throw new RuntimeException("验证码错误或已过期");
+
+        // 从Redis校验验证码
+        String cachedCode = redisTemplate.opsForValue().get(SMS_CODE_KEY_PREFIX + phone);
+        if (cachedCode == null) {
+            throw new RuntimeException("验证码已过期，请重新发送");
+        }
+        if (!verifyCode.equals(cachedCode)) {
+            throw new RuntimeException("验证码错误");
+        }
+        // 验证通过后删除验证码（一次性使用）
+        redisTemplate.delete(SMS_CODE_KEY_PREFIX + phone);
 
         User user = userMapper.findByPhone(phone);
         if (user == null) {
