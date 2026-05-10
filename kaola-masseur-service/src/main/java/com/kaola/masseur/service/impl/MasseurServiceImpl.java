@@ -291,6 +291,16 @@ public class MasseurServiceImpl implements MasseurService {
         return vo;
     }
 
+    @Override
+    public MasseurVO getMasseurByPhone(String phone) {
+        LambdaQueryWrapper<Masseur> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Masseur::getPhone, phone)
+               .eq(Masseur::getDeleted, 0)
+               .last("LIMIT 1");
+        Masseur masseur = masseurMapper.selectOne(wrapper);
+        return masseur != null ? convertToVO(masseur) : null;
+    }
+
     /**
      * 获取等级名称
      */

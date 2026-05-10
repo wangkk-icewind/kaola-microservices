@@ -76,6 +76,14 @@ public interface MasseurService {
      */
     List<MasseurVO> getMasseursByCity(String city);
 
+    /**
+     * 根据手机号查找技师
+     *
+     * @param phone 手机号
+     * @return 技师信息，未找到返回 null
+     */
+    MasseurVO getMasseurByPhone(String phone);
+
     // TODO: Cross-service dependency - Scheduling should be handled by scheduling service via OpenFeign
     // /**
     //  * 获取技师可预约时间

@@ -23,11 +23,14 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -41,6 +44,7 @@ import java.util.List;
  *
  * @author Kaola Team
  */
+@Slf4j
 @Tag(name = "技师接口", description = "技师登录、信息管理、收益、排班等接口")
 @RestController
 @RequestMapping("/masseur")
@@ -50,6 +54,11 @@ public class MasseurController {
 
     private final MasseurService masseurService;
     private final MasseurProjectService masseurProjectService;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String SMS_CODE_KEY_PREFIX = "sms:code:";
+    private static final String MOCK_SMS_CODE = "123456";
+    private static final long SMS_CODE_TTL_MINUTES = 5;
     // TODO: Cross-service dependency - EarningService should be accessed via OpenFeign from kaola-earning-service
     // private final EarningService earningService;
     // TODO: Cross-service dependency - ScheduleService should be accessed via OpenFeign from kaola-schedule-service
@@ -92,6 +101,51 @@ public class MasseurController {
     //     LoginVO loginVO = masseurService.login(loginDTO.getCode());
     //     return Result.success(loginVO);
     // }
+
+    /**
+     * 发送手机验证码（技师端）
+     */
+    @Operation(summary = "发送验证码", description = "向技师手机号发送短信验证码（测试环境固定为123456）")
+    @PostMapping("/send-code")
+    public Result<Boolean> sendCode(@RequestParam String phone) {
+        redisTemplate.opsForValue().set(SMS_CODE_KEY_PREFIX + phone, MOCK_SMS_CODE, SMS_CODE_TTL_MINUTES, TimeUnit.MINUTES);
+        log.info("技师端发送验证码, phone: {}, code: {}", phone, MOCK_SMS_CODE);
+        return Result.success(true);
+    }
+
+    /**
+     * 技师手机号+验证码登录
+     */
+    @Operation(summary = "手机号登录", description = "技师通过手机号和验证码登录")
+    @PostMapping("/phone-login")
+    public Result<Map<String, Object>> phoneLogin(@RequestBody Map<String, String> params) {
+        String phone = params.get("phone");
+        String code = params.get("code");
+        if (phone == null || phone.isBlank() || code == null || code.isBlank()) {
+            return Result.error("手机号和验证码不能为空");
+        }
+        String cachedCode = redisTemplate.opsForValue().get(SMS_CODE_KEY_PREFIX + phone);
+        if (cachedCode == null) {
+            return Result.error("验证码已过期，请重新获取");
+        }
+        if (!code.equals(cachedCode)) {
+            return Result.error("验证码错误");
+        }
+        redisTemplate.delete(SMS_CODE_KEY_PREFIX + phone);
+
+        MasseurVO masseurVO = masseurService.getMasseurByPhone(phone);
+        if (masseurVO == null) {
+            return Result.error("该手机号未注册技师账号");
+        }
+
+        String token = "masseur_token_" + masseurVO.getId() + "_" + System.currentTimeMillis();
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("token", token);
+        result.put("masseurInfo", masseurVO);
+        result.put("needBindPhone", false);
+        log.info("技师手机号登录成功, phone: {}, masseurId: {}", phone, masseurVO.getId());
+        return Result.success(result);
+    }
 
     /**
      * 获取技师信息
