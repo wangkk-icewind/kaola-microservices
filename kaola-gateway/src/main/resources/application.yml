@@ -163,6 +163,14 @@ spring:
           filters:
             - RewritePath=/api/masseur/schedules(?<seg>.*), /masseur/schedules${seg}
 
+        # Order Service 路由 - Masseur Availability（忙碌状态查询，必须在通用masseur路由之前）
+        - id: kaola-order-service-masseur-availability
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/masseur/availability
+          filters:
+            - RewritePath=/api/masseur/availability, /masseur/availability
+
         # Masseur Service 路由 - Public
         - id: kaola-masseur-service-public
           uri: http://localhost:8084

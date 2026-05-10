@@ -363,6 +363,25 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.updateById(order) > 0;
     }
 
+    @Override
+    @Transactional
+    public boolean payOrder(Long orderId) {
+        log.info("支付订单(模拟), orderId: {}", orderId);
+
+        Order order = orderRepository.selectById(orderId);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+
+        if (!order.getStatus().equals(OrderStatus.PENDING_PAYMENT.getCode())) {
+            throw new RuntimeException("只有待支付订单可以支付");
+        }
+
+        order.setStatus(OrderStatus.PAID.getCode());
+
+        return orderRepository.updateById(order) > 0;
+    }
+
     /**
      * 生成订单号
      */

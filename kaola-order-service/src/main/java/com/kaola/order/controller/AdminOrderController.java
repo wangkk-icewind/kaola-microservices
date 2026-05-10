@@ -312,6 +312,22 @@ public class AdminOrderController {
     }
 
     /**
+     * 开始服务（待服务→服务中）
+     */
+    @Operation(summary = "开始服务", description = "将订单状态从待服务改为服务中")
+    @PostMapping("/start/{id}")
+    public Result<Boolean> startService(@PathVariable Long id) {
+        log.info("开始服务, id: {}", id);
+        Order order = orderRepository.selectById(id);
+        if (order == null || order.getDeleted() == 1) return Result.error("订单不存在");
+        if (order.getStatus() != 2) return Result.error("只能开始待服务状态的订单");
+
+        order.setStatus(3);
+        int rows = orderRepository.updateById(order);
+        return rows > 0 ? Result.success(true) : Result.error("操作失败");
+    }
+
+    /**
      * 完成订单
      */
     @Operation(summary = "完成订单", description = "标记订单为已完成")

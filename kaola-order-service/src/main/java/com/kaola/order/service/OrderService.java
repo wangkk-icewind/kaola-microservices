@@ -74,4 +74,12 @@ public interface OrderService {
      * @return 是否成功
      */
     boolean completeOrder(Long orderId);
+
+    /**
+     * 支付订单（模拟支付，待支付→待服务）
+     *
+     * @param orderId 订单ID
+     * @return 是否成功
+     */
+    boolean payOrder(Long orderId);
 }

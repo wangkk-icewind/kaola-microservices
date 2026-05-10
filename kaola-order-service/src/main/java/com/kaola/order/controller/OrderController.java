@@ -151,4 +151,17 @@ public class OrderController {
         boolean success = orderService.completeOrder(id);
         return Result.success(success);
     }
+
+    /**
+     * 支付订单（模拟支付，开发环境使用）
+     * 将订单状态从待支付(1)变为待服务(2)
+     */
+    @Operation(summary = "支付订单", description = "模拟支付，将订单从待支付变为待服务")
+    @PostMapping("/{id}/pay")
+    public Result<Boolean> payOrder(
+            @Parameter(description = "订单ID", required = true)
+            @PathVariable @NotNull(message = "订单ID不能为空") Long id) {
+        boolean success = orderService.payOrder(id);
+        return Result.success(success);
+    }
 }
