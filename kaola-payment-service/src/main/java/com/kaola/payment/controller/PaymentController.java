@@ -2,26 +2,23 @@ package com.kaola.payment.controller;
 
 import com.kaola.common.core.dto.Result;
 import com.kaola.payment.model.vo.PaymentVO;
+import com.kaola.payment.service.PaymentConfigService;
 import com.kaola.payment.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 支付接口
- *
- * @author Kaola Team
- */
-@Tag(name = "支付接口", description = "微信支付、支付宝支付、退款等接口")
+@Slf4j
+@Tag(name = "支付接口", description = "微信支付、退款等接口")
 @RestController
 @RequestMapping("/payment")
 @RequiredArgsConstructor
@@ -29,86 +26,55 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentConfigService paymentConfigService;
 
-    /**
-     * 创建微信支付
-     *
-     * @param orderId 订单ID
-     * @return 支付信息
-     */
-    @Operation(summary = "创建微信支付", description = "为指定订单创建微信支付")
+    @Operation(summary = "创建微信 JSAPI 支付", description = "由 order-service 内部调用，返回小程序调起支付的参数")
     @PostMapping("/wechat/create")
     public Result<PaymentVO> createWechatPayment(
-            @Parameter(description = "订单ID", required = true)
-            @RequestParam @NotNull(message = "订单ID不能为空") Long orderId) {
-        PaymentVO payment = paymentService.createWechatPayment(orderId);
-        return Result.success(payment);
+            @RequestParam @NotNull Long orderId,
+            @RequestParam @NotBlank String orderNo,
+            @RequestParam @NotNull BigDecimal amount,
+            @RequestParam @NotNull Long userId,
+            @RequestParam @NotBlank String openid) {
+        PaymentVO vo = paymentService.createWechatPayment(orderId, orderNo, amount, userId, openid);
+        return Result.success(vo);
     }
 
     /**
-     * 创建支付宝支付
-     *
-     * @param orderId 订单ID
-     * @return 支付信息
+     * 微信支付 V3 回调通知。
+     * 微信服务器 POST 到此地址，携带 JSON 密文体和签名请求头。
+     * 返回 HTTP 200 + JSON {"code":"SUCCESS"} 表示处理成功；
+     * 其他返回值微信会重试。
      */
-    @Operation(summary = "创建支付宝支付", description = "为指定订单创建支付宝支付")
-    @PostMapping("/alipay/create")
-    public Result<PaymentVO> createAlipayPayment(
-            @Parameter(description = "订单ID", required = true)
-            @RequestParam @NotNull(message = "订单ID不能为空") Long orderId) {
-        PaymentVO payment = paymentService.createAlipayPayment(orderId);
-        return Result.success(payment);
-    }
-
-    /**
-     * 微信支付回调
-     *
-     * @param xml 回调数据
-     * @return 处理结果
-     */
-    @Operation(summary = "微信支付回调", description = "接收微信支付异步通知")
+    @Operation(summary = "微信支付 V3 回调通知")
     @PostMapping("/wechat/notify")
-    public String wechatNotify(@RequestBody String xml) {
-        return paymentService.handleWechatNotify(xml);
-    }
+    public Map<String, String> wechatNotify(
+            @RequestHeader("Wechatpay-Timestamp") String timestamp,
+            @RequestHeader("Wechatpay-Nonce") String nonce,
+            @RequestHeader("Wechatpay-Signature") String signature,
+            @RequestHeader("Wechatpay-Serial") String serial,
+            @RequestBody String body) {
 
-    /**
-     * 支付宝回调
-     *
-     * @param request HTTP请求
-     * @return 处理结果
-     */
-    @Operation(summary = "支付宝回调", description = "接收支付宝支付异步通知")
-    @PostMapping("/alipay/notify")
-    public String alipayNotify(HttpServletRequest request) {
-        Map<String, String> params = new HashMap<>();
-        Map<String, String[]> requestParams = request.getParameterMap();
-        for (String name : requestParams.keySet()) {
-            String[] values = requestParams.get(name);
-            StringBuilder valueStr = new StringBuilder();
-            for (int i = 0; i < values.length; i++) {
-                valueStr.append((i == values.length - 1) ? values[i] : values[i] + ",");
-            }
-            params.put(name, valueStr.toString());
+        String error = paymentService.handleWechatNotify(timestamp, nonce, signature, serial, body);
+        if (error == null) {
+            return Map.of("code", "SUCCESS", "message", "成功");
         }
-        return paymentService.handleAlipayNotify(params);
+        log.error("微信回调处理失败: {}", error);
+        return Map.of("code", "FAIL", "message", error);
     }
 
-    /**
-     * 退款
-     *
-     * @param orderId 订单ID
-     * @param amount  退款金额
-     * @return 操作结果
-     */
-    @Operation(summary = "退款", description = "为指定订单发起退款")
+    @Operation(summary = "申请退款")
     @PostMapping("/refund")
     public Result<Boolean> refund(
-            @Parameter(description = "订单ID", required = true)
-            @RequestParam @NotNull(message = "订单ID不能为空") Long orderId,
-            @Parameter(description = "退款金额", required = true)
-            @RequestParam @NotNull(message = "退款金额不能为空") BigDecimal amount) {
-        boolean success = paymentService.refund(orderId, amount);
-        return Result.success(success);
+            @Parameter(description = "订单 ID") @RequestParam @NotNull Long orderId,
+            @Parameter(description = "退款金额（元）") @RequestParam @NotNull BigDecimal amount) {
+        return Result.success(paymentService.refund(orderId, amount));
+    }
+
+    @Operation(summary = "刷新支付配置缓存", description = "后台更新支付参数后调用，立即生效")
+    @PostMapping("/config/refresh")
+    public Result<Boolean> refreshConfig() {
+        paymentConfigService.invalidateCache();
+        return Result.success(true);
     }
 }

@@ -103,4 +103,9 @@ public class OrderVO implements Serializable {
      * 支付截止时间
      */
     private LocalDateTime payDeadline;
+
+    /**
+     * 微信 JSAPI 调起支付参数（仅 paymentMethod=wechat 时返回）
+     */
+    private WxPayResult wxPayParams;
 }

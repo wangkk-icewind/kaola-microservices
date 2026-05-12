@@ -68,4 +68,19 @@ public class OrderDTO implements Serializable {
      * 收货地址 (商品订单使用)
      */
     private String receiverAddress;
+
+    /**
+     * 支付方式 ("wechat" | "alipay" | "balance")，默认 wechat
+     */
+    private String paymentMethod = "wechat";
+
+    /**
+     * 加钟服务（时长扩展项）
+     */
+    private Long addTime;
+
+    /**
+     * 额外服务项 ID 列表
+     */
+    private List<Long> extras;
 }

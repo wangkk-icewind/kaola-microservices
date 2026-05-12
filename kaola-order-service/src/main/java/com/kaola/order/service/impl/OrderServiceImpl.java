@@ -1,6 +1,9 @@
 package com.kaola.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kaola.common.core.dto.Result;
+import com.kaola.order.client.PaymentServiceClient;
+import com.kaola.order.client.UserServiceClient;
 import com.kaola.order.model.dto.OrderDTO;
 import com.kaola.order.model.dto.OrderItemDTO;
 import com.kaola.order.model.entity.Order;
@@ -8,6 +11,7 @@ import com.kaola.order.model.entity.OrderItem;
 import com.kaola.order.model.enums.OrderStatus;
 import com.kaola.order.model.vo.OrderItemVO;
 import com.kaola.order.model.vo.OrderVO;
+import com.kaola.order.model.vo.WxPayResult;
 import com.kaola.order.client.StoreServiceClient;
 import com.kaola.order.mapper.OrderItemMapper;
 import com.kaola.order.mapper.OrderMapper;
@@ -52,6 +56,8 @@ public class OrderServiceImpl implements OrderService {
     private final RestTemplate restTemplate;
     private final MasseurCacheService masseurCacheService;
     private final StoreServiceClient storeServiceClient;
+    private final PaymentServiceClient paymentServiceClient;
+    private final UserServiceClient userServiceClient;
 
     private static final String PRODUCT_SERVICE_URL = "http://localhost:8085";
     private static final String MARKETING_SERVICE_URL = "http://localhost:8092";
@@ -196,11 +202,16 @@ public class OrderServiceImpl implements OrderService {
                     ((Number) durationObj).intValue() : 0;
                 orderItem.setDuration(duration);
 
-                // 处理加钟
+                // 处理加钟：按项目的每分钟加钟价格计算
                 if (itemDTO.getExtraDuration() != null && itemDTO.getExtraDuration() > 0) {
                     orderItem.setExtraDuration(itemDTO.getExtraDuration());
-                    // TODO: 加钟费用计算逻辑待完善
-                    orderItem.setExtraPrice(BigDecimal.ZERO);
+                    Object rateObj = projectInfo != null ? projectInfo.get("extraPricePerMinute") : null;
+                    if (rateObj instanceof Number) {
+                        BigDecimal ratePerMin = new BigDecimal(rateObj.toString());
+                        orderItem.setExtraPrice(ratePerMin.multiply(new BigDecimal(itemDTO.getExtraDuration())));
+                    } else {
+                        orderItem.setExtraPrice(BigDecimal.ZERO);
+                    }
                 }
 
                 // 累加总金额
@@ -243,7 +254,14 @@ public class OrderServiceImpl implements OrderService {
         log.info("订单创建成功, orderId: {}, orderNo: {}, totalAmount: {}",
             order.getId(), order.getOrderNo(), totalAmount);
 
-        return getOrderDetail(order.getId());
+        OrderVO orderVO = getOrderDetail(order.getId());
+
+        // 微信支付：调用 payment-service 创建预支付，将参数写入响应
+        if ("wechat".equalsIgnoreCase(dto.getPaymentMethod())) {
+            orderVO.setWxPayParams(createWechatPayParams(order, userId));
+        }
+
+        return orderVO;
     }
 
     @Override
@@ -366,20 +384,80 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public boolean payOrder(Long orderId) {
-        log.info("支付订单(模拟), orderId: {}", orderId);
+        log.info("支付通知回调, orderId: {}", orderId);
 
         Order order = orderRepository.selectById(orderId);
         if (order == null) {
-            throw new RuntimeException("订单不存在");
+            throw new RuntimeException("订单不存在: " + orderId);
         }
-
-        if (!order.getStatus().equals(OrderStatus.PENDING_PAYMENT.getCode())) {
-            throw new RuntimeException("只有待支付订单可以支付");
+        if (OrderStatus.PAID.getCode().equals(order.getStatus())) {
+            log.info("订单已支付，忽略重复通知, orderId={}", orderId);
+            return true;
+        }
+        if (!OrderStatus.PENDING_PAYMENT.getCode().equals(order.getStatus())) {
+            throw new RuntimeException("只有待支付订单可以更新为已支付");
         }
 
         order.setStatus(OrderStatus.PAID.getCode());
-
+        order.setPayTime(LocalDateTime.now());
         return orderRepository.updateById(order) > 0;
+    }
+
+    /**
+     * 微信支付回调后由 payment-service 调用，通过 orderNo 更新订单状态。
+     */
+    @Override
+    @Transactional
+    public boolean markOrderPaid(String orderNo, String transactionId) {
+        log.info("标记订单已支付, orderNo={}, transactionId={}", orderNo, transactionId);
+
+        LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderNo, orderNo);
+        Order order = orderRepository.selectOne(wrapper);
+        if (order == null) {
+            throw new RuntimeException("订单不存在: orderNo=" + orderNo);
+        }
+        if (OrderStatus.PAID.getCode().equals(order.getStatus())) {
+            log.info("订单已支付，忽略重复通知, orderNo={}", orderNo);
+            return true;
+        }
+        order.setStatus(OrderStatus.PAID.getCode());
+        order.setPayTime(LocalDateTime.now());
+        return orderRepository.updateById(order) > 0;
+    }
+
+    /**
+     * 调用 payment-service 创建微信预支付，返回小程序调起所需参数。
+     * 失败时记录日志但不阻断订单创建（客户端可后续重试）。
+     */
+    private WxPayResult createWechatPayParams(Order order, Long userId) {
+        try {
+            String openid = userServiceClient.getOpenId(userId);
+            if (openid == null || openid.isBlank()) {
+                log.warn("用户 openid 为空，无法发起微信支付, userId={}", userId);
+                return null;
+            }
+            Result<PaymentServiceClient.PaymentResult> result = paymentServiceClient.createWechatPayment(
+                    order.getId(), order.getOrderNo(), order.getPayAmount(), userId, openid);
+
+            if (result == null || result.getData() == null || result.getData().getWxPayParams() == null) {
+                log.warn("payment-service 返回空参数, orderId={}", order.getId());
+                return null;
+            }
+
+            PaymentServiceClient.PaymentResult.WxParams src = result.getData().getWxPayParams();
+            WxPayResult dest = new WxPayResult();
+            dest.setAppId(src.getAppId());
+            dest.setTimeStamp(src.getTimeStamp());
+            dest.setNonceStr(src.getNonceStr());
+            dest.setPackageValue(src.getPackageValue());
+            dest.setSignType(src.getSignType());
+            dest.setPaySign(src.getPaySign());
+            return dest;
+        } catch (Exception e) {
+            log.error("创建微信支付失败, orderId={}", order.getId(), e);
+            return null;
+        }
     }
 
     /**
@@ -393,8 +471,7 @@ public class OrderServiceImpl implements OrderService {
         OrderVO vo = new OrderVO();
         BeanUtils.copyProperties(order, vo);
 
-        // TODO: 待 store-service 创建后，通过 OpenFeign 获取门店信息
-        // 填充门店信息 - 根据storeId获取门店名称
+        // 通过 Feign 调用 store-service 获取门店名称
         String storeName = getStoreName(order.getStoreId());
         vo.setStoreName(storeName);
 
@@ -623,6 +700,22 @@ public class OrderServiceImpl implements OrderService {
             log.warn("优惠券验证失败，不应用折扣. userCouponId={}", userCouponId, e);
         }
         return BigDecimal.ZERO;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean reviewOrder(Long orderId) {
+        log.info("标记订单为已评价, orderId: {}", orderId);
+        Order order = orderRepository.selectById(orderId);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+        if (!order.getStatus().equals(OrderStatus.COMPLETED.getCode())) {
+            log.warn("订单状态不是已完成，跳过更新, orderId={}, status={}", orderId, order.getStatus());
+            return false;
+        }
+        order.setStatus(OrderStatus.REVIEWED.getCode());
+        return orderRepository.updateById(order) > 0;
     }
 
     /**

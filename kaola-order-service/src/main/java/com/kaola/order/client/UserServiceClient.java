@@ -3,6 +3,7 @@ package com.kaola.order.client;
 import com.kaola.common.core.dto.Result;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 
 /**
@@ -15,12 +16,15 @@ public interface UserServiceClient {
 
     /**
      * 获取用户信息
-     *
-     * @param userId 用户ID
-     * @return 用户信息
      */
     @GetMapping("/user/info")
     Result<UserVO> getUserInfo(@RequestHeader("X-User-Id") Long userId);
+
+    /**
+     * 获取用户微信 openid（内部接口，支付用）
+     */
+    @GetMapping("/user/internal/openid/{userId}")
+    String getOpenId(@PathVariable("userId") Long userId);
 
     /**
      * 用户信息 VO

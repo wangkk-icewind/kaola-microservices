@@ -82,4 +82,14 @@ public interface OrderService {
      * @return 是否成功
      */
     boolean payOrder(Long orderId);
+
+    /**
+     * 微信支付成功后由 payment-service 回调，通过 orderNo 将订单标记为已支付
+     */
+    boolean markOrderPaid(String orderNo, String transactionId);
+
+    /**
+     * 标记订单为已评价（由 review-service 回调）
+     */
+    boolean reviewOrder(Long orderId);
 }
