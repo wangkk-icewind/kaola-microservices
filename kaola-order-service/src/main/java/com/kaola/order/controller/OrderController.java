@@ -164,4 +164,16 @@ public class OrderController {
         boolean success = orderService.payOrder(id);
         return Result.success(success);
     }
+
+    /**
+     * 标记订单为已评价（由 review-service 回调）
+     */
+    @Operation(summary = "标记已评价", description = "将已完成订单状态置为已评价（review-service 回调）")
+    @PostMapping("/{id}/reviewed")
+    public Result<Boolean> reviewOrder(
+            @Parameter(description = "订单ID", required = true)
+            @PathVariable @NotNull(message = "订单ID不能为空") Long id) {
+        boolean success = orderService.reviewOrder(id);
+        return Result.success(success);
+    }
 }

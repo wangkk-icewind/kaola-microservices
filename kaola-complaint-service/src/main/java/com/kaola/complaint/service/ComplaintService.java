@@ -28,4 +28,12 @@ public interface ComplaintService {
      * @return 投诉列表
      */
     List<ComplaintVO> getComplaintList(Long userId);
+
+    /**
+     * 获取投诉详情
+     *
+     * @param complaintId 投诉ID
+     * @return 投诉详情
+     */
+    ComplaintVO getComplaintDetail(Long complaintId);
 }

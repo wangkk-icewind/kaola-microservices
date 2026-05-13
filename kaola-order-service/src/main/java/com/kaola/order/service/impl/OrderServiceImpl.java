@@ -202,13 +202,15 @@ public class OrderServiceImpl implements OrderService {
                     ((Number) durationObj).intValue() : 0;
                 orderItem.setDuration(duration);
 
-                // 处理加钟：按项目的每分钟加钟价格计算
+                // 处理加钟：优先用项目配置的每分钟单价，否则用前端传入的 extraPrice
                 if (itemDTO.getExtraDuration() != null && itemDTO.getExtraDuration() > 0) {
                     orderItem.setExtraDuration(itemDTO.getExtraDuration());
                     Object rateObj = projectInfo != null ? projectInfo.get("extraPricePerMinute") : null;
                     if (rateObj instanceof Number) {
                         BigDecimal ratePerMin = new BigDecimal(rateObj.toString());
                         orderItem.setExtraPrice(ratePerMin.multiply(new BigDecimal(itemDTO.getExtraDuration())));
+                    } else if (itemDTO.getExtraPrice() != null && itemDTO.getExtraPrice().compareTo(BigDecimal.ZERO) > 0) {
+                        orderItem.setExtraPrice(itemDTO.getExtraPrice());
                     } else {
                         orderItem.setExtraPrice(BigDecimal.ZERO);
                     }
@@ -524,6 +526,8 @@ public class OrderServiceImpl implements OrderService {
             vo.setProjectId(item.getProjectId());
             vo.setMasseurId(item.getMasseurId());
             vo.setDuration(item.getDuration());
+            vo.setExtraDuration(item.getExtraDuration());
+            vo.setExtraPrice(item.getExtraPrice());
             vo.setQuantity(1); // 默认数量为1
 
             // 计算小计

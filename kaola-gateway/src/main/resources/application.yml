@@ -275,6 +275,14 @@ spring:
           filters:
             - StripPrefix=1
 
+        # Marketing Service 路由 - Promotion Detail (复数路径，兼容小程序端 /promotions/:id)
+        - id: kaola-marketing-service-promotions-detail
+          uri: http://localhost:8092
+          predicates:
+            - Path=/api/promotions/**
+          filters:
+            - StripPrefix=1
+
         # Marketing Service 路由 - Promotion
         - id: kaola-marketing-service-promotion
           uri: http://localhost:8092
@@ -323,11 +331,27 @@ spring:
           filters:
             - StripPrefix=1
 
-        # Complaint Service 路由
+        # Complaint Service 路由 - Admin
+        - id: kaola-complaint-service-admin
+          uri: http://localhost:8094
+          predicates:
+            - Path=/api/admin/complaint/**
+          filters:
+            - StripPrefix=1
+
+        # Complaint Service 路由 - User
         - id: kaola-complaint-service
           uri: http://localhost:8094
           predicates:
             - Path=/api/complaint/**
+          filters:
+            - StripPrefix=1
+
+        # Payment Service 路由
+        - id: kaola-payment-service
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/payment/**
           filters:
             - StripPrefix=1
 

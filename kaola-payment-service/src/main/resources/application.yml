@@ -2,6 +2,9 @@ server:
   port: 8087
 
 spring:
+  config:
+    import: optional:nacos:localhost:8848
+
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/kaola_massage?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
@@ -57,6 +60,6 @@ payment:
 # Feign 服务地址（开发环境直连，生产通过 Nacos）
 feign:
   admin-service:
-    url: ${ADMIN_SERVICE_URL:http://localhost:8091}
+    url: ${ADMIN_SERVICE_URL:http://localhost:8095}
   order-service:
     url: ${ORDER_SERVICE_URL:http://localhost:8086}

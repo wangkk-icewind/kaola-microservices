@@ -5,10 +5,15 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.kaola.common.core.dto.PageVO;
+import com.kaola.marketing.mapper.CouponMapper;
 import com.kaola.marketing.mapper.PromotionMapper;
+import com.kaola.marketing.mapper.UserCouponMapper;
+import com.kaola.marketing.model.entity.Coupon;
 import com.kaola.marketing.model.entity.Promotion;
+import com.kaola.marketing.model.entity.UserCoupon;
 import com.kaola.marketing.model.vo.CouponVO;
 import com.kaola.marketing.model.vo.PromotionVO;
+import com.kaola.marketing.service.CouponService;
 import com.kaola.marketing.service.PromotionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +35,9 @@ import java.util.List;
 public class PromotionServiceImpl implements PromotionService {
 
     private final PromotionMapper promotionMapper;
+    private final CouponMapper couponMapper;
+    private final UserCouponMapper userCouponMapper;
+    private final CouponService couponService;
 
     @Override
     public List<PromotionVO> getActivePromotions(Long storeId) {
@@ -99,22 +107,52 @@ public class PromotionServiceImpl implements PromotionService {
     @Override
     public List<CouponVO> getAvailableCoupons(Long userId) {
         log.info("获取用户可用优惠券, userId: {}", userId);
-        // TODO: 实现优惠券查询逻辑
-        return new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        List<UserCoupon> userCoupons = userCouponMapper.selectList(
+            new LambdaQueryWrapper<UserCoupon>()
+                .eq(UserCoupon::getUserId, userId)
+                .eq(UserCoupon::getStatus, 0)
+        );
+        List<CouponVO> result = new ArrayList<>();
+        for (UserCoupon uc : userCoupons) {
+            Coupon coupon = couponMapper.selectById(uc.getCouponId());
+            if (coupon == null || coupon.getStatus() != 1) continue;
+            if (coupon.getEndTime() != null && now.isAfter(coupon.getEndTime())) continue;
+            CouponVO vo = new CouponVO();
+            vo.setId(coupon.getId());
+            vo.setName(coupon.getName());
+            vo.setType(coupon.getType());
+            vo.setValue(coupon.getValue());
+            vo.setMinAmount(coupon.getMinAmount());
+            vo.setStartTime(coupon.getStartTime());
+            vo.setEndTime(coupon.getEndTime());
+            result.add(vo);
+        }
+        log.info("用户 {} 有 {} 张可用优惠券", userId, result.size());
+        return result;
     }
 
     @Override
     public boolean receiveCoupon(Long userId, Long couponId) {
         log.info("领取优惠券, userId: {}, couponId: {}", userId, couponId);
-        // TODO: 实现优惠券领取逻辑
-        return true;
+        return couponService.claimCoupon(couponId, userId);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean applyCoupon(Long orderId, Long couponId) {
-        log.info("使用优惠券, orderId: {}, couponId: {}", orderId, couponId);
-        // TODO: 实现优惠券使用逻辑
-        return true;
+        log.info("使用优惠券, orderId: {}, userCouponId: {}", orderId, couponId);
+        UserCoupon userCoupon = userCouponMapper.selectById(couponId);
+        if (userCoupon == null) {
+            throw new RuntimeException("优惠券不存在");
+        }
+        if (userCoupon.getStatus() != 0) {
+            throw new RuntimeException("优惠券已使用或已过期");
+        }
+        userCoupon.setStatus(1);
+        userCoupon.setOrderId(orderId);
+        userCoupon.setUseTime(LocalDateTime.now());
+        return userCouponMapper.updateById(userCoupon) > 0;
     }
 
     @Override

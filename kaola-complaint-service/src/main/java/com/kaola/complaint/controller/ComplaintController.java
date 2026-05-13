@@ -21,22 +21,15 @@ import java.util.List;
  */
 @Tag(name = "投诉接口", description = "创建投诉、查询投诉等接口")
 @RestController
-@RequestMapping("/user-complaint")
+@RequestMapping("/complaint")
 @RequiredArgsConstructor
 @Validated
 public class ComplaintController {
 
     private final ComplaintService complaintService;
 
-    /**
-     * 创建投诉
-     *
-     * @param userId 用户ID
-     * @param dto    投诉数据
-     * @return 操作结果
-     */
-    @Operation(summary = "创建投诉", description = "用户创建投诉记录")
-    @PostMapping("/create")
+    @Operation(summary = "提交投诉", description = "用户提交投诉记录")
+    @PostMapping("/submit")
     public Result<Boolean> createComplaint(
             @Parameter(description = "用户ID", hidden = true)
             @RequestHeader("X-User-Id") Long userId,
@@ -45,12 +38,6 @@ public class ComplaintController {
         return Result.success(success);
     }
 
-    /**
-     * 获取投诉列表
-     *
-     * @param userId 用户ID
-     * @return 投诉列表
-     */
     @Operation(summary = "获取投诉列表", description = "获取用户的投诉记录列表")
     @GetMapping("/list")
     public Result<List<ComplaintVO>> getComplaintList(
@@ -58,5 +45,14 @@ public class ComplaintController {
             @RequestHeader("X-User-Id") Long userId) {
         List<ComplaintVO> complaints = complaintService.getComplaintList(userId);
         return Result.success(complaints);
+    }
+
+    @Operation(summary = "获取投诉详情", description = "根据投诉ID获取详细信息")
+    @GetMapping("/detail/{id}")
+    public Result<ComplaintVO> getComplaintDetail(
+            @Parameter(description = "投诉ID", required = true)
+            @PathVariable Long id) {
+        ComplaintVO complaint = complaintService.getComplaintDetail(id);
+        return Result.success(complaint);
     }
 }

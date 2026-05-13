@@ -1,6 +1,8 @@
 spring:
   application:
     name: kaola-payment-service
+  config:
+    import: "optional:nacos:"
   cloud:
     nacos:
       server-addr: localhost:8848

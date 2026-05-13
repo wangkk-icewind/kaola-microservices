@@ -1,6 +1,7 @@
 package com.kaola.marketing.controller;
 
 import com.kaola.common.core.dto.Result;
+import com.kaola.marketing.model.entity.Promotion;
 import com.kaola.marketing.model.vo.CouponVO;
 import com.kaola.marketing.model.vo.PromotionVO;
 import com.kaola.marketing.service.PromotionService;
@@ -106,6 +107,21 @@ public class PromotionController {
             @RequestParam @NotNull(message = "优惠券ID不能为空") Long couponId) {
         boolean success = promotionService.receiveCoupon(userId, couponId);
         return Result.success(success);
+    }
+
+    /**
+     * 获取促销活动详情（用户端）
+     *
+     * @param id 促销活动ID
+     * @return 促销活动详情
+     */
+    @Operation(summary = "获取促销活动详情", description = "根据ID获取促销活动详情（用户端）")
+    @GetMapping("/promotions/{id}")
+    public Result<Promotion> getPromotionDetail(
+            @Parameter(description = "促销活动ID", required = true)
+            @PathVariable Long id) {
+        Promotion promotion = promotionService.getPromotionDetail(id);
+        return Result.success(promotion);
     }
 
     /**

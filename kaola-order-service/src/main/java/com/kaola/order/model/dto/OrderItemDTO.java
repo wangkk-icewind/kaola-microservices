@@ -45,4 +45,9 @@ public class OrderItemDTO implements Serializable {
      * 额外时长(分钟) (服务项使用)
      */
     private Integer extraDuration;
+
+    /**
+     * 加钟费用（前端计算传入，当后端无法获取 extraPricePerMinute 时作为回退）
+     */
+    private java.math.BigDecimal extraPrice;
 }

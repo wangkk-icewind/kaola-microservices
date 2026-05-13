@@ -11,6 +11,9 @@ public interface OrderServiceClient {
     @GetMapping("/admin/order/detail/{id}")
     Result<OrderVO> getOrderDetail(@PathVariable Long id);
 
+    @org.springframework.web.bind.annotation.PostMapping("/order/{id}/reviewed")
+    Result<Boolean> reviewOrder(@PathVariable Long id);
+
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     class OrderVO {
         private Long id;

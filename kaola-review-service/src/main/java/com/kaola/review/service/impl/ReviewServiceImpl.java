@@ -2,6 +2,8 @@ package com.kaola.review.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.kaola.review.client.OrderServiceClient;
+import com.kaola.review.client.UserServiceClient;
 import com.kaola.review.model.dto.ReviewDTO;
 import com.kaola.review.model.entity.Review;
 import com.kaola.review.model.vo.ReviewVO;
@@ -18,8 +20,6 @@ import java.util.stream.Collectors;
 
 /**
  * 评价服务实现类
- *
- * @author Kaola Team
  */
 @Slf4j
 @Service
@@ -27,28 +27,30 @@ import java.util.stream.Collectors;
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewMapper reviewMapper;
-
-    // TODO: 需要通过Feign调用其他服务
-    // private final OrderFeignClient orderFeignClient;
-    // private final UserFeignClient userFeignClient;
+    private final OrderServiceClient orderServiceClient;
+    private final UserServiceClient userServiceClient;
 
     @Override
     @Transactional
     public boolean createReview(Long userId, ReviewDTO dto) {
-        log.info("创建评价, userId: {}, dto: {}", userId, dto);
+        log.info("创建评价, userId: {}, orderId: {}", userId, dto.getOrderId());
 
-        // TODO: 通过Feign调用订单服务验证订单
-        // Order order = orderFeignClient.getOrderById(dto.getOrderId());
-        // if (order == null) {
-        //     throw new RuntimeException("订单不存在");
-        // }
+        // 验证订单是否存在
+        try {
+            var orderResult = orderServiceClient.getOrderDetail(dto.getOrderId());
+            if (orderResult == null || orderResult.getCode() != 0 || orderResult.getData() == null) {
+                throw new RuntimeException("订单不存在");
+            }
+        } catch (feign.FeignException e) {
+            log.error("调用 order-service 获取订单失败, orderId: {}", dto.getOrderId(), e);
+            throw new RuntimeException("订单不存在或无法访问");
+        }
 
         // 检查是否已评价
         Review existReview = reviewMapper.selectOne(
             new LambdaQueryWrapper<Review>()
                 .eq(Review::getOrderId, dto.getOrderId())
         );
-
         if (existReview != null) {
             throw new RuntimeException("订单已评价");
         }
@@ -65,8 +67,13 @@ public class ReviewServiceImpl implements ReviewService {
 
         reviewMapper.insert(review);
 
-        // TODO: 通过Feign调用订单服务更新订单状态
-        // orderFeignClient.updateOrderStatus(dto.getOrderId(), OrderStatus.REVIEWED);
+        // 通知 order-service 将订单状态置为已评价
+        try {
+            orderServiceClient.reviewOrder(dto.getOrderId());
+            log.info("订单状态已更新为已评价, orderId: {}", dto.getOrderId());
+        } catch (Exception e) {
+            log.warn("更新订单评价状态失败（非致命），orderId: {}", dto.getOrderId(), e);
+        }
 
         return true;
     }
@@ -89,7 +96,6 @@ public class ReviewServiceImpl implements ReviewService {
                 .map(this::convertToVO)
                 .collect(Collectors.toList())
         );
-
         return voPage;
     }
 
@@ -111,7 +117,6 @@ public class ReviewServiceImpl implements ReviewService {
                 .map(this::convertToVO)
                 .collect(Collectors.toList())
         );
-
         return voPage;
     }
 
@@ -119,12 +124,16 @@ public class ReviewServiceImpl implements ReviewService {
         ReviewVO vo = new ReviewVO();
         BeanUtils.copyProperties(review, vo);
 
-        // TODO: 通过Feign调用用户服务填充用户信息
-        // User user = userFeignClient.getUserById(review.getUserId());
-        // if (user != null) {
-        //     vo.setUserNickname(user.getNickname());
-        //     vo.setUserAvatar(user.getAvatar());
-        // }
+        // 通过 user-service 填充用户昵称和头像
+        try {
+            var userResult = userServiceClient.getUserInfo(review.getUserId());
+            if (userResult != null && userResult.getCode() == 0 && userResult.getData() != null) {
+                vo.setUserNickname(userResult.getData().getNickname());
+                vo.setUserAvatar(userResult.getData().getAvatar());
+            }
+        } catch (Exception e) {
+            log.warn("获取用户信息失败（非致命），userId: {}", review.getUserId(), e);
+        }
 
         return vo;
     }

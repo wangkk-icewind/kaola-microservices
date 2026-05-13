@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
 @Slf4j
 @Tag(name = "管理后台 - 投诉管理", description = "投诉的查询和处理接口")
 @RestController
-@RequestMapping("/complaint")
+@RequestMapping("/admin/complaint")
 @RequiredArgsConstructor
 public class AdminComplaintController {
 

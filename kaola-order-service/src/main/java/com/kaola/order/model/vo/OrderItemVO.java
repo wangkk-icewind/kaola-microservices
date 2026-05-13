@@ -84,4 +84,14 @@ public class OrderItemVO implements Serializable {
      * 商品图片（商品订单专用）
      */
     private String productImage;
+
+    /**
+     * 加钟时长（分钟）
+     */
+    private Integer extraDuration;
+
+    /**
+     * 加钟费用
+     */
+    private BigDecimal extraPrice;
 }
