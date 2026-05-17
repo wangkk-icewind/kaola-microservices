@@ -256,19 +256,19 @@ public class PricingConfigServiceImpl implements PricingConfigService {
             // store_discount：按 triggerType 校验时段/提前预约条件
             if ("store_discount".equals(promo.getCategory())) {
                 String triggerType = rules.getString("triggerType");
-                if (triggerType == null) triggerType = "time_slot";
+                boolean hasTimeSlot = rules.getString("timeSlotStart") != null;
 
-                if ("time_slot".equals(triggerType)) {
-                    // 检查预约时间是否在 timeSlotStart~timeSlotEnd 时段内
+                if ("time_slot".equals(triggerType) || (triggerType == null && hasTimeSlot)) {
+                    // 有时段配置：检查预约时间是否在 timeSlotStart~timeSlotEnd 时段内
                     if (!isAppointmentInTimeSlot(appointmentTime, rules)) continue;
                 } else if ("advance_booking".equals(triggerType)) {
-                    // 检查是否提前足够时间预约（当前时间距预约时间 >= advanceMinutes）
+                    // 提前预约：检查是否提前足够时间预约（当前时间距预约时间 >= advanceMinutes）
                     int advanceMins = rules.getIntValue("advanceMinutes");
                     if (advanceMins <= 0) advanceMins = 30;
                     long minutesAhead = java.time.Duration.between(now, appointmentTime).toMinutes();
                     if (minutesAhead < advanceMins) continue;
                 }
-                // off_peak 不需要额外时段检查，活动有效期内即可
+                // triggerType=off_peak 或无 triggerType 且无时段配置：不限时段，活动有效期内即可
             }
 
             BigDecimal minAmount = rules.getBigDecimal("minAmount");
