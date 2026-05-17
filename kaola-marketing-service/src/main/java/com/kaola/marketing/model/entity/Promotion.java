@@ -79,4 +79,10 @@ public class Promotion extends BaseEntity {
      */
     @TableField("status")
     private Integer status;
+
+    /**
+     * 促销类别: banner=首页Banner促销, store_discount=门店时段折扣
+     */
+    @TableField("category")
+    private String category;
 }

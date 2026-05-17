@@ -53,13 +53,8 @@ public class PromotionServiceImpl implements PromotionService {
         wrapper.le(Promotion::getStartTime, LocalDateTime.now());
         wrapper.ge(Promotion::getEndTime, LocalDateTime.now());
 
-        // 如果指定了门店ID，查询该门店的活动或全局活动
-        if (storeId != null) {
-            wrapper.and(w -> w.eq(Promotion::getStoreId, storeId).or().isNull(Promotion::getStoreId));
-        } else {
-            // 只查询全局活动
-            wrapper.isNull(Promotion::getStoreId);
-        }
+        // 只返回 Banner 类别（首页轮播）
+        wrapper.eq(Promotion::getCategory, "banner");
 
         // 按创建时间倒序
         wrapper.orderByDesc(Promotion::getCreateTime);
@@ -161,6 +156,7 @@ public class PromotionServiceImpl implements PromotionService {
 
         LambdaQueryWrapper<Promotion> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Promotion::getStatus, 1);
+        wrapper.eq(Promotion::getCategory, "store_discount");
         wrapper.eq(Promotion::getStoreId, storeId);
         wrapper.le(Promotion::getStartTime, LocalDateTime.now());
         wrapper.ge(Promotion::getEndTime, LocalDateTime.now());
@@ -190,9 +186,9 @@ public class PromotionServiceImpl implements PromotionService {
     // ==================== Admin 端方法实现 ====================
 
     @Override
-    public PageVO<Promotion> getPromotionList(Long current, Long pageSize, String name, Integer type, Integer status, Boolean globalOnly) {
-        log.info("分页查询促销活动列表, current: {}, pageSize: {}, name: {}, type: {}, status: {}, globalOnly: {}",
-                current, pageSize, name, type, status, globalOnly);
+    public PageVO<Promotion> getPromotionList(Long current, Long pageSize, String name, Integer type, Integer status, String category) {
+        log.info("分页查询促销活动列表, current: {}, pageSize: {}, name: {}, type: {}, status: {}, category: {}",
+                current, pageSize, name, type, status, category);
 
         Page<Promotion> page = new Page<>(current, pageSize);
         LambdaQueryWrapper<Promotion> wrapper = new LambdaQueryWrapper<>();
@@ -209,11 +205,9 @@ public class PromotionServiceImpl implements PromotionService {
             wrapper.eq(Promotion::getStatus, status);
         }
 
-        // globalOnly=true → 仅全局促销(Banner)；globalOnly=false → 仅门店专属折扣
-        if (Boolean.TRUE.equals(globalOnly)) {
-            wrapper.isNull(Promotion::getStoreId);
-        } else if (Boolean.FALSE.equals(globalOnly)) {
-            wrapper.isNotNull(Promotion::getStoreId);
+        // category 过滤：banner=首页促销, store_discount=门店时段折扣
+        if (category != null && !category.trim().isEmpty()) {
+            wrapper.eq(Promotion::getCategory, category.trim());
         }
 
         wrapper.orderByDesc(Promotion::getCreateTime);
