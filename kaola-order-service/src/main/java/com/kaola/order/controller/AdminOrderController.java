@@ -354,7 +354,8 @@ public class AdminOrderController {
 
         Order order = orderRepository.selectById(request.getId());
         if (order == null || order.getDeleted() == 1) return Result.error("订单不存在");
-        if (order.getStatus() == 0 || order.getStatus() == 4 || order.getStatus() == 5) {
+        // 允许退款：状态 1(待支付)/2(已支付)/3(服务中)/4(已完成)；禁止：0(已取消)/5(已评价)
+        if (order.getStatus() == 0 || order.getStatus() == 5) {
             return Result.error("当前状态不允许退款");
         }
         order.setStatus(0);
