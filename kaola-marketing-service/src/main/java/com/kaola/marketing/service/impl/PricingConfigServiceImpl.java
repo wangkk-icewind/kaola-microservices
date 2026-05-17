@@ -253,6 +253,24 @@ public class PricingConfigServiceImpl implements PricingConfigService {
             // 新客活动：isNewCustomer 必须为 true
             if (isNewCustomerPromo && !Boolean.TRUE.equals(isNewCustomer)) continue;
 
+            // store_discount：按 triggerType 校验时段/提前预约条件
+            if ("store_discount".equals(promo.getCategory())) {
+                String triggerType = rules.getString("triggerType");
+                if (triggerType == null) triggerType = "time_slot";
+
+                if ("time_slot".equals(triggerType)) {
+                    // 检查预约时间是否在 timeSlotStart~timeSlotEnd 时段内
+                    if (!isAppointmentInTimeSlot(appointmentTime, rules)) continue;
+                } else if ("advance_booking".equals(triggerType)) {
+                    // 检查是否提前足够时间预约（当前时间距预约时间 >= advanceMinutes）
+                    int advanceMins = rules.getIntValue("advanceMinutes");
+                    if (advanceMins <= 0) advanceMins = 30;
+                    long minutesAhead = java.time.Duration.between(now, appointmentTime).toMinutes();
+                    if (minutesAhead < advanceMins) continue;
+                }
+                // off_peak 不需要额外时段检查，活动有效期内即可
+            }
+
             BigDecimal minAmount = rules.getBigDecimal("minAmount");
             if (minAmount != null && minAmount.compareTo(BigDecimal.ZERO) > 0
                     && servicePrice.compareTo(minAmount) < 0) continue;
@@ -292,6 +310,31 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                 break;
         }
         return BigDecimal.ZERO;
+    }
+
+    /**
+     * 检查预约时间是否落在门店折扣的时段窗口内（timeSlotStart ~ timeSlotEnd，左闭右开）。
+     * 若 rules 中缺少时段字段则视为不满足条件（保守策略，不给折扣）。
+     */
+    private boolean isAppointmentInTimeSlot(LocalDateTime appointmentTime, JSONObject rules) {
+        String startStr = rules.getString("timeSlotStart");
+        String endStr = rules.getString("timeSlotEnd");
+        if (startStr == null || endStr == null) return false;
+        try {
+            LocalTime target = LocalTime.of(appointmentTime.getHour(), appointmentTime.getMinute());
+            LocalTime start = LocalTime.parse(startStr);
+            LocalTime end = LocalTime.parse(endStr);
+            if (start.isBefore(end) || start.equals(end)) {
+                // 普通时段（如 10:00~11:30）：左闭右开
+                return !target.isBefore(start) && target.isBefore(end);
+            } else {
+                // 跨夜时段（如 22:00~02:00）
+                return !target.isBefore(start) || target.isBefore(end);
+            }
+        } catch (Exception e) {
+            log.warn("门店折扣时段解析失败: start={}, end={}", startStr, endStr, e);
+            return false;
+        }
     }
 
     /**
