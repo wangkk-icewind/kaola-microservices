@@ -178,6 +178,7 @@ public class PromotionServiceImpl implements PromotionService {
             vo.setRules(p.getRules());
             vo.setStartTime(p.getStartTime());
             vo.setEndTime(p.getEndTime());
+            vo.setStoreId(p.getStoreId());
             vo.setIsActive(true);
             result.add(vo);
         }
@@ -189,9 +190,9 @@ public class PromotionServiceImpl implements PromotionService {
     // ==================== Admin 端方法实现 ====================
 
     @Override
-    public PageVO<Promotion> getPromotionList(Long current, Long pageSize, String name, Integer type, Integer status) {
-        log.info("分页查询促销活动列表, current: {}, pageSize: {}, name: {}, type: {}, status: {}",
-                current, pageSize, name, type, status);
+    public PageVO<Promotion> getPromotionList(Long current, Long pageSize, String name, Integer type, Integer status, Boolean globalOnly) {
+        log.info("分页查询促销活动列表, current: {}, pageSize: {}, name: {}, type: {}, status: {}, globalOnly: {}",
+                current, pageSize, name, type, status, globalOnly);
 
         Page<Promotion> page = new Page<>(current, pageSize);
         LambdaQueryWrapper<Promotion> wrapper = new LambdaQueryWrapper<>();
@@ -206,6 +207,13 @@ public class PromotionServiceImpl implements PromotionService {
 
         if (status != null) {
             wrapper.eq(Promotion::getStatus, status);
+        }
+
+        // globalOnly=true → 仅全局促销(Banner)；globalOnly=false → 仅门店专属折扣
+        if (Boolean.TRUE.equals(globalOnly)) {
+            wrapper.isNull(Promotion::getStoreId);
+        } else if (Boolean.FALSE.equals(globalOnly)) {
+            wrapper.isNotNull(Promotion::getStoreId);
         }
 
         wrapper.orderByDesc(Promotion::getCreateTime);

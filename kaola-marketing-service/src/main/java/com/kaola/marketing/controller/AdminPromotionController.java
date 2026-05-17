@@ -42,12 +42,14 @@ public class AdminPromotionController {
             @Parameter(description = "活动类型 (1-满减 2-折扣 3-买赠 4-秒杀)")
             @RequestParam(required = false) Integer type,
             @Parameter(description = "状态 (0-禁用 1-启用)")
-            @RequestParam(required = false) Integer status) {
+            @RequestParam(required = false) Integer status,
+            @Parameter(description = "true=仅全局促销(store_id IS NULL), false=仅门店专属, null=全部")
+            @RequestParam(required = false) Boolean globalOnly) {
 
-        log.info("分页查询促销活动列表, current: {}, pageSize: {}, name: {}, type: {}, status: {}",
-                current, pageSize, name, type, status);
+        log.info("分页查询促销活动列表, current: {}, pageSize: {}, name: {}, type: {}, status: {}, globalOnly: {}",
+                current, pageSize, name, type, status, globalOnly);
 
-        PageVO<Promotion> pageVO = promotionService.getPromotionList(current, pageSize, name, type, status);
+        PageVO<Promotion> pageVO = promotionService.getPromotionList(current, pageSize, name, type, status, globalOnly);
         return Result.success(pageVO);
     }
 

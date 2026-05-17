@@ -68,7 +68,7 @@ public interface PromotionService {
      * @param status   状态
      * @return 分页结果
      */
-    PageVO<Promotion> getPromotionList(Long current, Long pageSize, String name, Integer type, Integer status);
+    PageVO<Promotion> getPromotionList(Long current, Long pageSize, String name, Integer type, Integer status, Boolean globalOnly);
 
     /**
      * 获取促销活动详情
