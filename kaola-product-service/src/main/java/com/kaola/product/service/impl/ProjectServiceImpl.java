@@ -185,6 +185,7 @@ public class ProjectServiceImpl implements ProjectService {
         vo.setName(project.getName());
         vo.setDescription(project.getDescription());
         vo.setDuration(project.getDuration());
+        vo.setExtraPricePerMinute(project.getExtraPricePerMinute());
 
         BigDecimal basePrice = project.getBasePrice();
         // 应用等级系数和门店系数（时段系数在浏览时未知，由前端再乘）

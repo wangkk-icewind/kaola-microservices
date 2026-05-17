@@ -2,10 +2,12 @@ package com.kaola.marketing.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.kaola.marketing.mapper.MasseurLevelPricingMapper;
+import com.kaola.marketing.mapper.PromotionMapper;
 import com.kaola.marketing.mapper.StorePricingMapper;
 import com.kaola.marketing.mapper.TimeSlotPricingMapper;
 import com.kaola.marketing.model.dto.PriceCalculationRequest;
 import com.kaola.marketing.model.entity.MasseurLevelPricing;
+import com.kaola.marketing.model.entity.Promotion;
 import com.kaola.marketing.model.entity.StorePricing;
 import com.kaola.marketing.model.entity.TimeSlotPricing;
 import com.kaola.marketing.model.vo.PriceCalculationVO;
@@ -21,7 +23,9 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -41,6 +45,7 @@ public class PricingConfigServiceImpl implements PricingConfigService {
     private final MasseurLevelPricingMapper masseurLevelPricingMapper;
     private final TimeSlotPricingMapper timeSlotPricingMapper;
     private final StorePricingMapper storePricingMapper;
+    private final PromotionMapper promotionMapper;
     private final RestTemplate restTemplate;
 
     @Override
@@ -117,13 +122,16 @@ public class PricingConfigServiceImpl implements PricingConfigService {
     @Override
     @SuppressWarnings("unchecked")
     public PriceCalculationVO calculatePrice(PriceCalculationRequest request) {
-        log.info("计算价格: projectId={}, masseurLevel={}, storeId={}, appointmentTime={}",
-                request.getProjectId(), request.getMasseurLevel(), request.getStoreId(), request.getAppointmentTime());
+        log.info("计算价格: projectId={}, masseurLevel={}, storeId={}, appointmentTime={}, isNewCustomer={}",
+                request.getProjectId(), request.getMasseurLevel(), request.getStoreId(),
+                request.getAppointmentTime(), request.getIsNewCustomer());
 
-        // 从 product-service 获取项目卖价底和划线原价底
-        BigDecimal[] prices = getProjectPrices(request.getProjectId());
-        BigDecimal basePrice = prices[0];         // 卖价底（project.basePrice）
-        BigDecimal originalBasePrice = prices[1]; // 划线原价底（project.originalPrice）
+        // 从 product-service 获取项目卖价底、划线原价底、时长和加钟单价
+        Object[] projectData = getProjectData(request.getProjectId());
+        BigDecimal basePrice = (BigDecimal) projectData[0];
+        BigDecimal originalBasePrice = (BigDecimal) projectData[1];
+        Integer projectDuration = (Integer) projectData[2];
+        BigDecimal projectExtraPPM = (BigDecimal) projectData[3]; // 项目设置的加钟单价（元/分钟，不含倍率）
 
         // 1. 获取技师等级系数
         BigDecimal levelMultiplier = getMasseurLevelMultiplier(request.getMasseurLevel());
@@ -148,28 +156,42 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                 .multiply(storeMultiplier)
                 .setScale(0, BigDecimal.ROUND_FLOOR);
 
-        // 6. 计算加钟费用
+        // 6. 计算加钟费用：优先使用项目配置的加钟单价，没有则按 basePrice/duration 推算
         BigDecimal extraPrice = BigDecimal.ZERO;
         if (request.getExtraMinutes() != null && request.getExtraMinutes() > 0) {
-            BigDecimal pricePerMinute = basePrice.divide(new BigDecimal("60"), 4, BigDecimal.ROUND_FLOOR);
-            extraPrice = pricePerMinute
+            int dur = projectDuration != null && projectDuration > 0 ? projectDuration : 60;
+            BigDecimal basePPM = (projectExtraPPM != null && projectExtraPPM.compareTo(BigDecimal.ZERO) > 0)
+                    ? projectExtraPPM
+                    : basePrice.divide(new BigDecimal(dur), 4, BigDecimal.ROUND_FLOOR);
+            extraPrice = basePPM
                     .multiply(new BigDecimal(request.getExtraMinutes()))
                     .multiply(levelMultiplier)
                     .multiply(timeSlotMultiplier)
                     .multiply(storeMultiplier)
-                    .setScale(0, BigDecimal.ROUND_FLOOR);
+                    .setScale(0, BigDecimal.ROUND_CEILING);
         }
 
-        // 7. 计算优惠折扣（暂时不实现优惠券逻辑）
-        BigDecimal discountAmount = BigDecimal.ZERO;
+        // 7. 查询并应用促销折扣
+        PromotionResult promoResult = applyBestPromotion(servicePrice, request.getStoreId(),
+                request.getIsNewCustomer(), request.getAppointmentTime());
+        BigDecimal discountAmount = promoResult.discountAmount;
+        String promotionName = promoResult.promotionName;
+        Integer promotionType = promoResult.promotionType;
 
         // 8. 最终价格 = 服务价格 + 加钟费用 - 优惠折扣
         BigDecimal finalPrice = servicePrice
                 .add(extraPrice)
                 .subtract(discountAmount)
+                .max(BigDecimal.ZERO)
                 .setScale(0, BigDecimal.ROUND_FLOOR);
 
-        // 9. 构建返回结果
+        // 9. 加钟基础单价（元/分钟，不含倍率）：优先项目配置值，否则按 basePrice/duration 推算
+        int dur = projectDuration != null && projectDuration > 0 ? projectDuration : 60;
+        BigDecimal extraPricePerMinute = (projectExtraPPM != null && projectExtraPPM.compareTo(BigDecimal.ZERO) > 0)
+                ? projectExtraPPM
+                : basePrice.divide(new BigDecimal(dur), 4, BigDecimal.ROUND_FLOOR);
+
+        // 10. 构建返回结果
         PriceCalculationVO result = PriceCalculationVO.builder()
                 .basePrice(basePrice)
                 .levelMultiplier(levelMultiplier)
@@ -180,22 +202,106 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                 .extraPrice(extraPrice)
                 .discountAmount(discountAmount)
                 .finalPrice(finalPrice)
+                .promotionName(promotionName)
+                .promotionType(promotionType)
+                .extraPricePerMinute(extraPricePerMinute)
+                .duration(projectDuration)
                 .build();
 
-        log.info("价格计算完成: 基础价格={}, 服务价格={}, 加钟费用={}, 最终价格={}",
-                basePrice, servicePrice, extraPrice, finalPrice);
+        log.info("价格计算完成: 基础价格={}, 服务价格={}, 加钟费用={}, 折扣={}/{}, 最终价格={}",
+                basePrice, servicePrice, extraPrice, discountAmount, promotionName, finalPrice);
 
         return result;
     }
 
+    /** 促销计算结果内部类 */
+    private static class PromotionResult {
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        String promotionName = null;
+        Integer promotionType = null;
+    }
+
     /**
-     * 从 product-service 获取项目价格：[0]=卖价底(basePrice), [1]=划线原价底(originalPrice)
+     * 查询当前适用的最优促销并返回折扣金额、名称、类型。
+     * 优先级：新客专属 > 普通折扣/满减；相同类别取折扣金额最大者。
+     */
+    private PromotionResult applyBestPromotion(BigDecimal servicePrice, Long storeId,
+                                                Boolean isNewCustomer, LocalDateTime appointmentTime) {
+        PromotionResult best = new PromotionResult();
+        if (servicePrice == null || servicePrice.compareTo(BigDecimal.ZERO) <= 0) return best;
+
+        LocalDateTime now = LocalDateTime.now();
+        // 查询：全局促销（storeId IS NULL）或本门店促销
+        List<Promotion> promotions = promotionMapper.selectList(
+                new LambdaQueryWrapper<Promotion>()
+                        .eq(Promotion::getStatus, 1)
+                        .le(Promotion::getStartTime, now)
+                        .ge(Promotion::getEndTime, now)
+                        .and(w -> w.isNull(Promotion::getStoreId).or().eq(Promotion::getStoreId, storeId))
+        );
+
+        for (Promotion promo : promotions) {
+            JSONObject rules;
+            try {
+                rules = promo.getRules() != null ? JSON.parseObject(promo.getRules()) : new JSONObject();
+            } catch (Exception e) {
+                continue;
+            }
+            int type = promo.getType() != null ? promo.getType() : 0;
+            boolean isNewCustomerPromo = (type == 4 || type == 5);
+
+            // 新客活动：isNewCustomer 必须为 true
+            if (isNewCustomerPromo && !Boolean.TRUE.equals(isNewCustomer)) continue;
+
+            BigDecimal minAmount = rules.getBigDecimal("minAmount");
+            if (minAmount != null && minAmount.compareTo(BigDecimal.ZERO) > 0
+                    && servicePrice.compareTo(minAmount) < 0) continue;
+
+            BigDecimal discount = calcDiscountAmount(type, servicePrice, rules);
+            if (discount != null && discount.compareTo(best.discountAmount) > 0) {
+                best.discountAmount = discount;
+                best.promotionName = promo.getName();
+                best.promotionType = type;
+            }
+        }
+        return best;
+    }
+
+    /** 根据促销类型和规则计算折扣金额 */
+    private BigDecimal calcDiscountAmount(int type, BigDecimal servicePrice, JSONObject rules) {
+        switch (type) {
+            case 1: // 满减
+            case 4: { // 新客立减
+                BigDecimal reduce = rules.getBigDecimal("reduce");
+                if (reduce == null) reduce = rules.getBigDecimal("discount");
+                if (reduce != null && reduce.compareTo(BigDecimal.ZERO) > 0)
+                    return reduce.min(servicePrice);
+                break;
+            }
+            case 2: // 折扣
+            case 5: { // 新客折扣
+                BigDecimal discountRate = rules.getBigDecimal("discount");
+                if (discountRate != null && discountRate.compareTo(BigDecimal.ONE) < 0
+                        && discountRate.compareTo(BigDecimal.ZERO) > 0) {
+                    return servicePrice.multiply(BigDecimal.ONE.subtract(discountRate))
+                            .setScale(0, BigDecimal.ROUND_FLOOR);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+        return BigDecimal.ZERO;
+    }
+
+    /**
+     * 从 product-service 获取项目数据：[0]=卖价底(BigDecimal), [1]=划线原价底(BigDecimal), [2]=时长(Integer/null)
      */
     @SuppressWarnings("unchecked")
-    private BigDecimal[] getProjectPrices(Long projectId) {
+    private Object[] getProjectData(Long projectId) {
         if (projectId == null) {
             log.warn("projectId 为空，使用默认价格 0");
-            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
+            return new Object[]{BigDecimal.ZERO, BigDecimal.ZERO, null, null};
         }
         try {
             String url = PRODUCT_SERVICE_URL + "/project/" + projectId;
@@ -204,20 +310,26 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                 Map<String, Object> data = (Map<String, Object>) response.get("data");
                 if (data != null && data.get("price") != null) {
                     BigDecimal basePrice = new BigDecimal(data.get("price").toString());
-                    // originalPrice 字段：若为空则与卖价相同
                     BigDecimal originalPrice = data.get("originalPrice") != null
                             ? new BigDecimal(data.get("originalPrice").toString())
                             : basePrice;
-                    log.info("获取项目 {} 价格成功: basePrice={}, originalPrice={}", projectId, basePrice, originalPrice);
-                    return new BigDecimal[]{basePrice, originalPrice};
+                    Integer duration = data.get("duration") != null
+                            ? ((Number) data.get("duration")).intValue()
+                            : null;
+                    BigDecimal extraPPM = data.get("extraPricePerMinute") != null
+                            ? new BigDecimal(data.get("extraPricePerMinute").toString())
+                            : null;
+                    log.info("获取项目 {} 数据成功: basePrice={}, originalPrice={}, duration={}, extraPPM={}",
+                            projectId, basePrice, originalPrice, duration, extraPPM);
+                    return new Object[]{basePrice, originalPrice, duration, extraPPM};
                 }
             }
-            log.warn("获取项目 {} 价格失败，响应: {}", projectId, response);
+            log.warn("获取项目 {} 数据失败，响应: {}", projectId, response);
         } catch (Exception e) {
-            log.error("调用 product-service 获取项目 {} 价格失败", projectId, e);
+            log.error("调用 product-service 获取项目 {} 数据失败", projectId, e);
         }
         log.error("无法获取项目 {} 价格，请检查 product-service 是否正常运行", projectId);
-        return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
+        return new Object[]{BigDecimal.ZERO, BigDecimal.ZERO, null, null};
     }
 
     /**

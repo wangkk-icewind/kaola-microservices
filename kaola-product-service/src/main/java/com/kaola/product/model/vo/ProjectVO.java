@@ -53,6 +53,11 @@ public class ProjectVO implements Serializable {
     private Integer duration;
 
     /**
+     * 加钟单价（元/分钟，不含倍率）
+     */
+    private BigDecimal extraPricePerMinute;
+
+    /**
      * 销量
      */
     private Integer sales;
