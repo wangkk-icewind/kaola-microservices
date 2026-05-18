@@ -3,6 +3,7 @@ package com.kaola.marketing.model.dto;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -35,4 +36,9 @@ public class CouponRules implements Serializable {
      * 排除的项目ID列表
      */
     private List<Long> excludeProjectIds;
+
+    /**
+     * 折扣券最高优惠金额（type=2时生效）
+     */
+    private BigDecimal maxDiscount;
 }

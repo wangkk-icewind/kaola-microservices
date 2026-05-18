@@ -427,7 +427,13 @@ public class CouponServiceImpl implements CouponService {
             case 2: // 折扣券
                 if (coupon.getMinAmount() != null && orderAmount.compareTo(coupon.getMinAmount()) >= 0) {
                     // value是折扣率，如0.8表示8折，优惠金额 = 订单金额 * (1 - 折扣率)
-                    return orderAmount.multiply(BigDecimal.ONE.subtract(coupon.getValue()));
+                    BigDecimal discount = orderAmount.multiply(BigDecimal.ONE.subtract(coupon.getValue()))
+                            .setScale(0, java.math.RoundingMode.FLOOR);
+                    CouponRules rules = parseRules(coupon.getRules());
+                    if (rules.getMaxDiscount() != null && rules.getMaxDiscount().compareTo(BigDecimal.ZERO) > 0) {
+                        discount = discount.min(rules.getMaxDiscount());
+                    }
+                    return discount;
                 }
                 return BigDecimal.ZERO;
 
