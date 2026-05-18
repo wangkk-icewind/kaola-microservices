@@ -301,8 +301,14 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                 BigDecimal discountRate = rules.getBigDecimal("discount");
                 if (discountRate != null && discountRate.compareTo(BigDecimal.ONE) < 0
                         && discountRate.compareTo(BigDecimal.ZERO) > 0) {
-                    return servicePrice.multiply(BigDecimal.ONE.subtract(discountRate))
+                    BigDecimal discount = servicePrice.multiply(BigDecimal.ONE.subtract(discountRate))
                             .setScale(0, BigDecimal.ROUND_FLOOR);
+                    // 应用 maxDiscount 封顶
+                    BigDecimal maxDiscount = rules.getBigDecimal("maxDiscount");
+                    if (maxDiscount != null && maxDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                        discount = discount.min(maxDiscount);
+                    }
+                    return discount;
                 }
                 break;
             }

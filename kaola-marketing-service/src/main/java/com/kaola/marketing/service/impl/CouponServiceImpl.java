@@ -364,17 +364,35 @@ public class CouponServiceImpl implements CouponService {
         BigDecimal orderAmount = null;
         Long storeId = null;
         List<Long> projectIds = null;
+        Boolean isNewCustomer = null;
 
         if (request instanceof CheckAvailableRequest) {
             CheckAvailableRequest req = (CheckAvailableRequest) request;
             orderAmount = req.getOrderAmount();
             storeId = req.getStoreId();
             projectIds = req.getProjectIds();
+            isNewCustomer = req.getIsNewCustomer();
         } else if (request instanceof ValidateCouponRequest) {
             ValidateCouponRequest req = (ValidateCouponRequest) request;
             orderAmount = req.getOrderAmount();
             storeId = req.getStoreId();
             projectIds = req.getProjectIds();
+            isNewCustomer = req.getIsNewCustomer();
+        }
+
+        // 检查客群限制 (customer_type: 0=全部 1=新客 2=老客)
+        if (coupon.getCustomerType() != null && coupon.getCustomerType() != 0) {
+            if (coupon.getCustomerType() == 1) {
+                // 新客专属券：isNewCustomer 必须为 true
+                if (!Boolean.TRUE.equals(isNewCustomer)) {
+                    return "该优惠券仅限新客使用";
+                }
+            } else if (coupon.getCustomerType() == 2) {
+                // 老客专属券：isNewCustomer 必须为 false（非新客）
+                if (Boolean.TRUE.equals(isNewCustomer)) {
+                    return "该优惠券仅限老客使用";
+                }
+            }
         }
 
         // 检查最低消费金额（代金券除外）

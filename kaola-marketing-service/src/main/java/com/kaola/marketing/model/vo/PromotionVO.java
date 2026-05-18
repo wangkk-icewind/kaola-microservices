@@ -74,4 +74,9 @@ public class PromotionVO implements Serializable {
      * 活动类型原始折扣值 (type=2时为折扣系数，如0.95)
      */
     private java.math.BigDecimal discount;
+
+    /**
+     * 关联门店ID（null表示全局促销）
+     */
+    private Long storeId;
 }

@@ -49,4 +49,16 @@ public class PriceCalculationVO {
 
     @Schema(description = "折扣说明", example = "满200减50优惠券")
     private String discountReason;
+
+    @Schema(description = "触发的促销活动名称", example = "新客立减50元")
+    private String promotionName;
+
+    @Schema(description = "触发的促销活动类型（1满减/2折扣/4新客立减/5新客折扣）", example = "4")
+    private Integer promotionType;
+
+    @Schema(description = "基础加钟单价（元/分钟，不含倍率系数）", example = "1.45")
+    private BigDecimal extraPricePerMinute;
+
+    @Schema(description = "项目时长（分钟）", example = "60")
+    private Integer duration;
 }

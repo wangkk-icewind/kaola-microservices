@@ -36,4 +36,7 @@ public class PriceCalculationRequest {
 
     @Schema(description = "优惠券ID", example = "1")
     private Long couponId;
+
+    @Schema(description = "是否新客户（首次下单享新客优惠）", example = "false")
+    private Boolean isNewCustomer;
 }

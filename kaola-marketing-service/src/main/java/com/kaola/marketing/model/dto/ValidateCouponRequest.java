@@ -41,4 +41,9 @@ public class ValidateCouponRequest implements Serializable {
      * 项目ID列表
      */
     private List<Long> projectIds;
+
+    /**
+     * 是否新客 (用于过滤 customer_type=1 的新客专属券)
+     */
+    private Boolean isNewCustomer;
 }
