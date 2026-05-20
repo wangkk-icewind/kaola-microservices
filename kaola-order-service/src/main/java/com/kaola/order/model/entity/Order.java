@@ -60,7 +60,7 @@ public class Order extends BaseEntity {
     private BigDecimal payAmount;
 
     /**
-     * 订单状态 (0-已取消 1-待支付 2-已支付 3-服务中 4-已完成 5-已评价)
+     * 订单状态 (0-已取消 1-待支付 2-已支付 3-服务中 4-已完成 5-已评价 6-已退款)
      */
     @TableField("status")
     private Integer status;
@@ -124,4 +124,10 @@ public class Order extends BaseEntity {
      */
     @TableField("remark")
     private String remark;
+
+    /**
+     * 提成覆盖: NULL=按默认规则, 1=强制发放, 0=强制不发（仅对 status=6 已退款订单有效）
+     */
+    @TableField("commission_override")
+    private Integer commissionOverride;
 }

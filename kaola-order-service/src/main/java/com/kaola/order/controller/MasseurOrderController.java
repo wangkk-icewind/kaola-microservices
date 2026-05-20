@@ -56,7 +56,7 @@ public class MasseurOrderController {
     }
 
     private static final Map<Integer, String> STATUS_TEXT = Map.of(
-        0, "已取消", 1, "待支付", 2, "待服务", 3, "服务中", 4, "已完成", 5, "已评价"
+        0, "已取消", 1, "待支付", 2, "待服务", 3, "服务中", 4, "已完成", 5, "已评价", 6, "已退款"
     );
 
     /** 获取技师的订单列表 */

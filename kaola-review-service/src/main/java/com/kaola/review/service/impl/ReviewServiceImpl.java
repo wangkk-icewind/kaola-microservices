@@ -35,16 +35,21 @@ public class ReviewServiceImpl implements ReviewService {
     public boolean createReview(Long userId, ReviewDTO dto) {
         log.info("创建评价, userId: {}, orderId: {}", userId, dto.getOrderId());
 
-        // 验证订单是否存在
+        // 验证订单是否存在，并从订单补全 storeId / masseurId
+        OrderServiceClient.OrderVO order;
         try {
             var orderResult = orderServiceClient.getOrderDetail(dto.getOrderId());
             if (orderResult == null || orderResult.getCode() != 0 || orderResult.getData() == null) {
                 throw new RuntimeException("订单不存在");
             }
+            order = orderResult.getData();
         } catch (feign.FeignException e) {
             log.error("调用 order-service 获取订单失败, orderId: {}", dto.getOrderId(), e);
             throw new RuntimeException("订单不存在或无法访问");
         }
+
+        if (dto.getStoreId() == null)   dto.setStoreId(order.getStoreId());
+        if (dto.getMasseurId() == null) dto.setMasseurId(order.getMasseurId());
 
         // 检查是否已评价
         Review existReview = reviewMapper.selectOne(

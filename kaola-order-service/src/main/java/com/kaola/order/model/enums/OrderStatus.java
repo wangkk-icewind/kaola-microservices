@@ -15,7 +15,8 @@ public enum OrderStatus {
     PAID(2, "已支付"),
     IN_SERVICE(3, "服务中"),
     COMPLETED(4, "已完成"),
-    REVIEWED(5, "已评价");
+    REVIEWED(5, "已评价"),
+    REFUNDED(6, "已退款");
 
     private final Integer code;
     private final String description;

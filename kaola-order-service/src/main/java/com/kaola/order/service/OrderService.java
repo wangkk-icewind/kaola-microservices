@@ -92,4 +92,9 @@ public interface OrderService {
      * 标记订单为已评价（由 review-service 回调）
      */
     boolean reviewOrder(Long orderId);
+
+    /**
+     * 判断用户是否有已完成订单（用于新老客判断）
+     */
+    boolean hasCompletedOrders(Long userId);
 }

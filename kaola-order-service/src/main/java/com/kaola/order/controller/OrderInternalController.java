@@ -4,6 +4,8 @@ import com.kaola.common.core.dto.Result;
 import com.kaola.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,5 +34,17 @@ public class OrderInternalController {
         log.info("收到支付成功通知, orderNo={}, transactionId={}", orderNo, transactionId);
         boolean success = orderService.markOrderPaid(orderNo, transactionId);
         return Result.success(success);
+    }
+
+    /**
+     * 查询用户是否有已完成订单（供 user-service 登录时判断新老客使用）
+     *
+     * @param userId 用户ID
+     * @return true=有已完成订单（老客），false=无（新客）
+     */
+    @GetMapping("/user/{userId}/has-completed")
+    public Result<Boolean> hasCompletedOrders(@PathVariable Long userId) {
+        boolean has = orderService.hasCompletedOrders(userId);
+        return Result.success(has);
     }
 }

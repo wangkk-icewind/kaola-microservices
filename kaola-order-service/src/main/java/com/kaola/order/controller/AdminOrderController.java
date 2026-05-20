@@ -354,11 +354,19 @@ public class AdminOrderController {
 
         Order order = orderRepository.selectById(request.getId());
         if (order == null || order.getDeleted() == 1) return Result.error("订单不存在");
-        // 允许退款：状态 1(待支付)/2(已支付)/3(服务中)/4(已完成)；禁止：0(已取消)/5(已评价)
-        if (order.getStatus() == 0 || order.getStatus() == 5) {
+        // 已取消(0) 或 已退款(6) 不可再退款
+        if (order.getStatus() == 0 || order.getStatus() == 6) {
             return Result.error("当前状态不允许退款");
         }
-        order.setStatus(0);
+        // 已完成(4) 或 已评价(5) → 已退款(6)，服务已发生，默认发放师傅提成
+        // 待支付(1)/已支付(2)/服务中(3) → 已取消(0)，服务未发生
+        if (order.getStatus() >= 4) {
+            order.setStatus(6);
+            Integer override = request.getCommissionOverride();
+            order.setCommissionOverride(override != null ? override : 1);
+        } else {
+            order.setStatus(0);
+        }
         order.setRemark(request.getRemark() != null ? request.getRemark() : "管理员退款");
         int rows = orderRepository.updateById(order);
         return rows > 0 ? Result.success(true) : Result.error("退款失败");

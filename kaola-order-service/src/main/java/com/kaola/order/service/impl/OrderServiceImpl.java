@@ -473,11 +473,10 @@ public class OrderServiceImpl implements OrderService {
         OrderVO vo = new OrderVO();
         BeanUtils.copyProperties(order, vo);
 
-        // 通过 Feign 调用 store-service 获取门店名称
-        String storeName = getStoreName(order.getStoreId());
-        vo.setStoreName(storeName);
+        // 通过 Feign 调用 store-service 获取门店信息
+        fillStoreInfo(vo, order.getStoreId());
 
-        // 填充订单项信息
+        // 填充订单项信息，并从第一个 item 取 masseurId
         List<OrderItem> orderItems = orderItemMapper.findByOrderId(order.getId());
         if (orderItems != null && !orderItems.isEmpty()) {
             List<OrderItemVO> itemVOs = new ArrayList<>();
@@ -488,6 +487,9 @@ public class OrderServiceImpl implements OrderService {
                 }
             }
             vo.setItems(itemVOs);
+            if (orderItems.get(0).getMasseurId() != null) {
+                vo.setMasseurId(orderItems.get(0).getMasseurId());
+            }
         }
 
         return vo;
@@ -722,21 +724,28 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.updateById(order) > 0;
     }
 
-    /**
-     * 获取门店名称（通过 Feign 调用 store-service 获取真实数据）
-     */
-    private String getStoreName(Long storeId) {
+    @Override
+    public boolean hasCompletedOrders(Long userId) {
+        return orderRepository.countCompletedByUserId(userId) > 0;
+    }
+
+    private void fillStoreInfo(OrderVO vo, Long storeId) {
         if (storeId == null) {
-            return "考拉推拿连锁店";
+            vo.setStoreName("考拉推拿连锁店");
+            return;
         }
         try {
             var result = storeServiceClient.getStoreDetail(storeId);
             if (result != null && result.getCode() == 0 && result.getData() != null) {
-                return result.getData().getName();
+                var store = result.getData();
+                vo.setStoreName(store.getName());
+                vo.setStorePhone(store.getPhone());
+                vo.setStoreAddress(store.getAddress());
+                return;
             }
         } catch (Exception e) {
-            log.error("调用 store-service 获取门店 {} 名称失败", storeId, e);
+            log.error("调用 store-service 获取门店 {} 信息失败", storeId, e);
         }
-        return "考拉推拿连锁店";
+        vo.setStoreName("考拉推拿连锁店");
     }
 }

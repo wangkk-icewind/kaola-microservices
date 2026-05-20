@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 订单数据访问层
@@ -69,8 +70,14 @@ public interface OrderMapper extends BaseMapper<Order> {
     /**
      * 统计用户消费总额
      */
-    @Select("SELECT IFNULL(SUM(pay_amount), 0) FROM t_order WHERE user_id = #{userId} AND status >= 2 AND deleted = 0")
+    @Select("SELECT IFNULL(SUM(pay_amount), 0) FROM t_order WHERE user_id = #{userId} AND status >= 2 AND status != 6 AND deleted = 0")
     BigDecimal sumPayAmountByUserId(@Param("userId") Long userId);
+
+    /**
+     * 统计用户已完成订单数（status=4已完成 或 status=5已评价，不含已退款6）
+     */
+    @Select("SELECT COUNT(*) FROM t_order WHERE user_id = #{userId} AND status IN (4, 5) AND deleted = 0")
+    int countCompletedByUserId(@Param("userId") Long userId);
 
     /**
      * 根据门店ID查询订单
@@ -108,4 +115,46 @@ public interface OrderMapper extends BaseMapper<Order> {
                              @Param("date") LocalDate date,
                              @Param("startTime") LocalTime startTime,
                              @Param("durationMinutes") int durationMinutes);
+
+    /**
+     * 查询技师在指定时段有重叠订单时，最晚的空闲开始时间（预约时间+总时长）
+     * 返回 "HH:mm" 字符串；无重叠时返回 null
+     */
+    @Select("SELECT DATE_FORMAT(" +
+            "  ADDTIME(o.appointment_time, SEC_TO_TIME((IFNULL(oi.duration, 60) + IFNULL(oi.extra_duration, 0)) * 60)), " +
+            "  '%H:%i') " +
+            "FROM t_order o " +
+            "INNER JOIN t_order_item oi ON o.id = oi.order_id " +
+            "WHERE oi.masseur_id = #{masseurId} " +
+            "AND o.appointment_date = #{date} " +
+            "AND o.status IN (2, 3) " +
+            "AND o.deleted = 0 AND oi.deleted = 0 " +
+            "AND o.appointment_time < ADDTIME(#{startTime}, SEC_TO_TIME(#{durationMinutes} * 60)) " +
+            "AND ADDTIME(o.appointment_time, SEC_TO_TIME(IFNULL(oi.duration, 60) * 60)) > #{startTime} " +
+            "ORDER BY ADDTIME(o.appointment_time, SEC_TO_TIME((IFNULL(oi.duration, 60) + IFNULL(oi.extra_duration, 0)) * 60)) DESC " +
+            "LIMIT 1")
+    String getMasseurFreeAt(@Param("masseurId") Long masseurId,
+                            @Param("date") LocalDate date,
+                            @Param("startTime") LocalTime startTime,
+                            @Param("durationMinutes") int durationMinutes);
+
+    /**
+     * 查询指定技师列表在指定日期的所有有效订单时间段
+     * 返回: masseurId, startTime("HH:mm"), totalDuration(分钟)
+     */
+    @Select("<script>" +
+            "SELECT oi.masseur_id AS masseurId, " +
+            "  DATE_FORMAT(o.appointment_time, '%H:%i') AS startTime, " +
+            "  (IFNULL(oi.duration, 60) + IFNULL(oi.extra_duration, 0)) AS totalDuration " +
+            "FROM t_order o " +
+            "INNER JOIN t_order_item oi ON o.id = oi.order_id " +
+            "WHERE oi.masseur_id IN " +
+            "  <foreach item='id' collection='masseurIds' open='(' separator=',' close=')'>#{id}</foreach>" +
+            "AND o.appointment_date = #{date} " +
+            "AND o.status != 0 " +
+            "AND o.deleted = 0 AND oi.deleted = 0 " +
+            "ORDER BY oi.masseur_id, o.appointment_time" +
+            "</script>")
+    List<Map<String, Object>> getMasseurDailySlots(@Param("masseurIds") List<Long> masseurIds,
+                                                    @Param("date") LocalDate date);
 }

@@ -267,8 +267,13 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                     if (advanceMins <= 0) advanceMins = 30;
                     long minutesAhead = java.time.Duration.between(now, appointmentTime).toMinutes();
                     if (minutesAhead < advanceMins) continue;
+                } else if ("off_peak".equals(triggerType)) {
+                    // 错峰折扣：仅工作日（周一至周五），且预约时间在配置的时段内
+                    int dow = appointmentTime.getDayOfWeek().getValue(); // 1=周一, 7=周日
+                    if (dow > 5) continue; // 周末不生效
+                    if (!isAppointmentInTimeSlot(appointmentTime, rules)) continue;
                 }
-                // triggerType=off_peak 或无 triggerType 且无时段配置：不限时段，活动有效期内即可
+                // 无 triggerType 且无时段配置：不限时段，活动有效期内即可
             }
 
             BigDecimal minAmount = rules.getBigDecimal("minAmount");

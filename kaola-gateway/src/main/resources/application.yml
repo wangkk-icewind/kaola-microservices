@@ -171,6 +171,14 @@ spring:
           filters:
             - RewritePath=/api/masseur/availability, /masseur/availability
 
+        # Order Service 路由 - Masseur Daily Slots（日程时间段，必须在通用masseur路由之前）
+        - id: kaola-order-service-masseur-daily-slots
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/masseur/daily-slots
+          filters:
+            - RewritePath=/api/masseur/daily-slots, /masseur/daily-slots
+
         # Masseur Service 路由 - Public
         - id: kaola-masseur-service-public
           uri: http://localhost:8084

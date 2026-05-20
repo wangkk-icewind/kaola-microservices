@@ -70,9 +70,29 @@ public class OrderVO implements Serializable {
     private LocalTime appointmentTime;
 
     /**
+     * 门店ID
+     */
+    private Long storeId;
+
+    /**
      * 门店名称
      */
     private String storeName;
+
+    /**
+     * 技师ID（取第一个订单项）
+     */
+    private Long masseurId;
+
+    /**
+     * 门店电话
+     */
+    private String storePhone;
+
+    /**
+     * 门店地址
+     */
+    private String storeAddress;
 
     /**
      * 项目数量

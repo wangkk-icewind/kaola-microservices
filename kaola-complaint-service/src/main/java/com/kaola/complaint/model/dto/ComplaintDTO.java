@@ -18,9 +18,8 @@ public class ComplaintDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 订单ID
+     * 订单ID（可选，非订单相关投诉时为空）
      */
-    @NotNull(message = "订单ID不能为空")
     private Long orderId;
 
     /**
@@ -39,4 +38,9 @@ public class ComplaintDTO implements Serializable {
      * 图片列表
      */
     private List<String> images;
+
+    /**
+     * 联系电话（可选）
+     */
+    private String phone;
 }

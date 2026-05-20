@@ -33,8 +33,8 @@ public class UserServiceImpl implements UserService {
 
     private static final String SMS_CODE_KEY_PREFIX = "sms:code:";
     private static final Duration SMS_CODE_TTL = Duration.ofMinutes(5);
-    // Mock验证码（仅在无短信服务时使用）
     private static final String MOCK_SMS_CODE = "123456";
+    private static final String ORDER_SERVICE_URL = "http://localhost:8086";
 
     @Override
     public LoginVO login(String code) {
@@ -140,9 +140,18 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private boolean isNewUser(Long userId) {
-        // 查是否有已完成订单 - 暂时直接返回false（避免跨服务调用复杂性）
-        // TODO: 调用order-service检查已完成订单数
+        try {
+            String url = ORDER_SERVICE_URL + "/order/internal/user/" + userId + "/has-completed";
+            java.util.Map response = restTemplate.getForObject(url, java.util.Map.class);
+            if (response != null && Integer.valueOf(0).equals(response.get("code"))) {
+                // data=true 表示有已完成订单（老客），isNewUser 取反
+                return !Boolean.TRUE.equals(response.get("data"));
+            }
+        } catch (Exception e) {
+            log.warn("查询用户历史完成订单失败，默认为老客: userId={}", userId, e);
+        }
         return false;
     }
 

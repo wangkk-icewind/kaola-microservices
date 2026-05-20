@@ -438,7 +438,7 @@ public class CouponServiceImpl implements CouponService {
                 return BigDecimal.ZERO;
 
             case 3: // 代金券
-                return coupon.getValue();
+                return coupon.getValue().min(orderAmount);
 
             default:
                 return BigDecimal.ZERO;

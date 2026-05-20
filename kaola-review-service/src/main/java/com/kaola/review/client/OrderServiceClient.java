@@ -19,6 +19,8 @@ public interface OrderServiceClient {
         private Long id;
         private String orderNo;
         private String projectName;
+        private Long storeId;
+        private Long masseurId;
 
         public Long getId() { return id; }
         public void setId(Long id) { this.id = id; }
@@ -26,5 +28,9 @@ public interface OrderServiceClient {
         public void setOrderNo(String orderNo) { this.orderNo = orderNo; }
         public String getProjectName() { return projectName; }
         public void setProjectName(String projectName) { this.projectName = projectName; }
+        public Long getStoreId() { return storeId; }
+        public void setStoreId(Long storeId) { this.storeId = storeId; }
+        public Long getMasseurId() { return masseurId; }
+        public void setMasseurId(Long masseurId) { this.masseurId = masseurId; }
     }
 }
