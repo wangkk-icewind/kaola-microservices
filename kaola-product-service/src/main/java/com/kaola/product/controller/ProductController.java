@@ -130,4 +130,16 @@ public class ProductController {
             return Result.error(e.getMessage());
         }
     }
+
+    @Operation(summary = "扣减库存", description = "下单时扣减实物商品库存（内部调用，原子防超卖）")
+    @PostMapping("/{id}/deduct-stock")
+    public Result<Boolean> deductStock(@PathVariable Long id, @RequestParam Integer quantity) {
+        return Result.success(productService.deductStock(id, quantity));
+    }
+
+    @Operation(summary = "回退库存", description = "取消订单时回退实物商品库存（内部调用）")
+    @PostMapping("/{id}/restore-stock")
+    public Result<Boolean> restoreStock(@PathVariable Long id, @RequestParam Integer quantity) {
+        return Result.success(productService.restoreStock(id, quantity));
+    }
 }

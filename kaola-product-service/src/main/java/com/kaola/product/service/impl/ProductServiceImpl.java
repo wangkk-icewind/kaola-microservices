@@ -122,4 +122,26 @@ public class ProductServiceImpl implements ProductService {
         product.setStatus(status);
         return productRepository.updateById(product) > 0;
     }
+
+    @Override
+    public boolean deductStock(Long productId, int quantity) {
+        if (productId == null || quantity <= 0) return true;
+        Product product = productRepository.selectById(productId);
+        if (product == null) return false;
+        // 仅实物商品扣库存；电子卡/项目卡视为无限，不扣
+        if (!"PHYSICAL_PRODUCT".equals(product.getType())) return true;
+        boolean ok = productRepository.deductStock(productId, quantity) > 0;
+        log.info("扣减实物库存 productId={}, qty={}, 结果={}", productId, quantity, ok ? "成功" : "库存不足");
+        return ok;
+    }
+
+    @Override
+    public boolean restoreStock(Long productId, int quantity) {
+        if (productId == null || quantity <= 0) return true;
+        Product product = productRepository.selectById(productId);
+        if (product == null || !"PHYSICAL_PRODUCT".equals(product.getType())) return true;
+        boolean ok = productRepository.restoreStock(productId, quantity) > 0;
+        log.info("回退实物库存 productId={}, qty={}, 结果={}", productId, quantity, ok);
+        return ok;
+    }
 }

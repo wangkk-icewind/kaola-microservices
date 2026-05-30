@@ -71,4 +71,15 @@ public interface ProductService {
      * 更新商品状态
      */
     boolean updateProductStatus(Long id, Integer status);
+
+    /**
+     * 扣减库存（仅实物商品 PHYSICAL_PRODUCT 原子扣减；卡类视为无限，no-op 成功）。
+     * @return true=扣减成功或无需扣减；false=实物商品库存不足
+     */
+    boolean deductStock(Long productId, int quantity);
+
+    /**
+     * 回退库存（取消订单时；仅实物商品生效）。
+     */
+    boolean restoreStock(Long productId, int quantity);
 }

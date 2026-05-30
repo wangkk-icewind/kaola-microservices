@@ -172,6 +172,12 @@ public class OrderServiceImpl implements OrderService {
                     throw new RuntimeException("商品不存在: " + itemDTO.getProductId());
                 }
 
+                // 扣减实物商品库存（原子防超卖；电子卡/项目卡 no-op）。不足则阻断下单
+                if (!deductProductStock(itemDTO.getProductId(), orderItem.getQuantity())) {
+                    Object pname = productInfo.get("name");
+                    throw new RuntimeException("商品库存不足: " + (pname != null ? pname : itemDTO.getProductId()));
+                }
+
                 Object priceObj = productInfo.get("price");
                 price = priceObj instanceof Number ?
                     new BigDecimal(priceObj.toString()) : BigDecimal.ZERO;
@@ -340,9 +346,20 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.CANCELLED.getCode());
         boolean ok = orderRepository.updateById(order) > 0;
 
-        // 回退已核销的优惠券
-        if (ok && order.getCouponId() != null) {
-            restoreCoupon(order.getCouponId());
+        if (ok) {
+            // 回退已核销的优惠券
+            if (order.getCouponId() != null) {
+                restoreCoupon(order.getCouponId());
+            }
+            // 回退实物商品库存（卡类 no-op）
+            List<OrderItem> items = orderItemMapper.findByOrderId(orderId);
+            if (items != null) {
+                for (OrderItem it : items) {
+                    if (it.getProductId() != null) {
+                        restoreProductStock(it.getProductId(), it.getQuantity() != null ? it.getQuantity() : 1);
+                    }
+                }
+            }
         }
         return ok;
     }
@@ -814,6 +831,37 @@ public class OrderServiceImpl implements OrderService {
             log.info("优惠券已回退, userCouponId={}", userCouponId);
         } catch (Exception e) {
             log.error("优惠券回退失败, userCouponId={}", userCouponId, e);
+        }
+    }
+
+    /** 扣减实物商品库存。返回 true=成功/无需扣减(卡类)，false=实物库存不足。 */
+    @SuppressWarnings("unchecked")
+    private boolean deductProductStock(Long productId, Integer quantity) {
+        try {
+            Map<String, Object> body = restTemplate.postForObject(
+                    PRODUCT_SERVICE_URL + "/product/" + productId + "/deduct-stock?quantity=" + (quantity != null ? quantity : 1),
+                    null, Map.class);
+            if (body != null && Integer.valueOf(0).equals(body.get("code"))) {
+                return Boolean.TRUE.equals(body.get("data"));
+            }
+            // 调用异常时不阻断（避免 product-service 抖动导致无法下单），仅记日志
+            log.warn("扣减库存返回异常, productId={}, resp={}", productId, body);
+            return true;
+        } catch (Exception e) {
+            log.error("扣减库存调用失败（放行下单）, productId={}", productId, e);
+            return true;
+        }
+    }
+
+    /** 回退实物商品库存（取消订单时）。失败仅记日志。 */
+    private void restoreProductStock(Long productId, Integer quantity) {
+        try {
+            restTemplate.postForObject(
+                    PRODUCT_SERVICE_URL + "/product/" + productId + "/restore-stock?quantity=" + (quantity != null ? quantity : 1),
+                    null, Map.class);
+            log.info("实物库存已回退, productId={}, qty={}", productId, quantity);
+        } catch (Exception e) {
+            log.error("实物库存回退失败, productId={}", productId, e);
         }
     }
 
