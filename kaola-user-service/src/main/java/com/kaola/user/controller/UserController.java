@@ -62,8 +62,11 @@ public class UserController {
     @Operation(summary = "发送验证码", description = "向手机号发送短信验证码")
     @PostMapping("/send-code")
     public Result<Boolean> sendVerifyCode(@RequestParam String phone) {
-        boolean sent = userService.sendVerifyCode(phone);
-        return Result.success(sent);
+        try {
+            return Result.success(userService.sendVerifyCode(phone));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     /**

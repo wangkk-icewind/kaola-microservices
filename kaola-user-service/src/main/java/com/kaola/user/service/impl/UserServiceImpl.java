@@ -35,6 +35,7 @@ public class UserServiceImpl implements UserService {
     private static final Duration SMS_CODE_TTL = Duration.ofMinutes(5);
     private static final String MOCK_SMS_CODE = "123456";
     private static final String ORDER_SERVICE_URL = "http://localhost:8086";
+    private static final String ADMIN_SERVICE_URL = "http://localhost:8095";
 
     @Override
     public LoginVO login(String code) {
@@ -75,10 +76,21 @@ public class UserServiceImpl implements UserService {
     @Override
     public boolean sendVerifyCode(String phone) {
         log.info("发送验证码, phone: {}", phone);
-        // 存入Redis（Mock环境固定为123456，真实环境调用短信服务后存入随机码）
-        redisTemplate.opsForValue().set(SMS_CODE_KEY_PREFIX + phone, MOCK_SMS_CODE, SMS_CODE_TTL);
-        log.info("验证码已存入Redis: phone={}, code={}, ttl={}min", phone, MOCK_SMS_CODE, SMS_CODE_TTL.toMinutes());
-        return true;
+        // 委托 admin-service 统一发送（阿里云短信；凭证缺失时其内部回退 mock 123456）
+        // admin-service 生成验证码并写入同一 Redis key sms:code:{phone}，本服务校验逻辑不变
+        try {
+            @SuppressWarnings("rawtypes")
+            java.util.Map resp = restTemplate.postForObject(
+                    ADMIN_SERVICE_URL + "/admin/sms/send-verify?phone=" + phone, null, java.util.Map.class);
+            if (resp != null && Integer.valueOf(0).equals(resp.get("code")) && Boolean.TRUE.equals(resp.get("data"))) {
+                return true;
+            }
+            String msg = resp != null && resp.get("message") != null ? resp.get("message").toString() : "验证码发送失败";
+            throw new RuntimeException(msg);
+        } catch (org.springframework.web.client.RestClientException e) {
+            log.error("调用短信服务失败, phone={}", phone, e);
+            throw new RuntimeException("短信服务暂不可用，请稍后再试");
+        }
     }
 
     @Override

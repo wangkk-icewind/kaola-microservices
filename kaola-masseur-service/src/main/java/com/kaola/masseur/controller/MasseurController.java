@@ -55,10 +55,12 @@ public class MasseurController {
     private final MasseurService masseurService;
     private final MasseurProjectService masseurProjectService;
     private final StringRedisTemplate redisTemplate;
+    private final org.springframework.web.client.RestTemplate restTemplate;
 
     private static final String SMS_CODE_KEY_PREFIX = "sms:code:";
     private static final String MOCK_SMS_CODE = "123456";
     private static final long SMS_CODE_TTL_MINUTES = 5;
+    private static final String ADMIN_SERVICE_URL = "http://localhost:8095";
     // TODO: Cross-service dependency - EarningService should be accessed via OpenFeign from kaola-earning-service
     // private final EarningService earningService;
     // TODO: Cross-service dependency - ScheduleService should be accessed via OpenFeign from kaola-schedule-service
@@ -108,9 +110,20 @@ public class MasseurController {
     @Operation(summary = "发送验证码", description = "向技师手机号发送短信验证码（测试环境固定为123456）")
     @PostMapping("/send-code")
     public Result<Boolean> sendCode(@RequestParam String phone) {
-        redisTemplate.opsForValue().set(SMS_CODE_KEY_PREFIX + phone, MOCK_SMS_CODE, SMS_CODE_TTL_MINUTES, TimeUnit.MINUTES);
-        log.info("技师端发送验证码, phone: {}, code: {}", phone, MOCK_SMS_CODE);
-        return Result.success(true);
+        // 委托 admin-service 统一发送（阿里云短信；凭证缺失时内部回退 mock 123456），写入同一 Redis key
+        try {
+            @SuppressWarnings("rawtypes")
+            Map resp = restTemplate.postForObject(
+                    ADMIN_SERVICE_URL + "/admin/sms/send-verify?phone=" + phone, null, Map.class);
+            if (resp != null && Integer.valueOf(0).equals(resp.get("code")) && Boolean.TRUE.equals(resp.get("data"))) {
+                return Result.success(true);
+            }
+            String msg = resp != null && resp.get("message") != null ? resp.get("message").toString() : "验证码发送失败";
+            return Result.error(msg);
+        } catch (Exception e) {
+            log.error("技师端发送验证码失败, phone={}", phone, e);
+            return Result.error("短信服务暂不可用，请稍后再试");
+        }
     }
 
     /**

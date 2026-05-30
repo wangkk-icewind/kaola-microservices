@@ -27,6 +27,9 @@ public class CouponDispatchServiceImpl implements CouponDispatchService {
     private final CouponDispatchMapper dispatchMapper;
     private final UserCouponMapper userCouponMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final org.springframework.web.client.RestTemplate restTemplate;
+
+    private static final String ADMIN_SERVICE_URL = "http://localhost:8095";
 
     @Override
     public DispatchPreviewVO preview(DispatchRequest request) {
@@ -65,6 +68,17 @@ public class CouponDispatchServiceImpl implements CouponDispatchService {
         dispatch.setDeleted(0);
         dispatchMapper.insert(dispatch);
 
+        // 券名用于短信内容（一次查询）
+        String couponName = null;
+        if (Boolean.TRUE.equals(request.getSmsNotify())) {
+            try {
+                couponName = jdbcTemplate.queryForObject(
+                        "SELECT name FROM t_coupon WHERE id = ?", String.class, request.getCouponId());
+            } catch (Exception e) {
+                log.warn("查询券名失败, couponId={}", request.getCouponId());
+            }
+        }
+
         int sentCount = 0;
         for (Map<String, Object> user : users) {
             Long userId = ((Number) user.get("id")).longValue();
@@ -82,9 +96,17 @@ public class CouponDispatchServiceImpl implements CouponDispatchService {
                     userCouponMapper.insert(uc);
                     sentCount++;
 
-                    // SMS notification (mock - just log)
+                    // 优惠券到账短信通知（委托 admin-service 发送）
                     if (Boolean.TRUE.equals(request.getSmsNotify()) && user.get("phone") != null) {
-                        log.info("[SMS Mock] 发送优惠券通知到: {}", user.get("phone"));
+                        try {
+                            String phone = user.get("phone").toString();
+                            String url = ADMIN_SERVICE_URL + "/admin/sms/send-coupon?phone=" + phone
+                                    + (couponName != null ? "&couponName="
+                                        + java.net.URLEncoder.encode(couponName, java.nio.charset.StandardCharsets.UTF_8) : "");
+                            restTemplate.postForObject(url, null, Map.class);
+                        } catch (Exception ex) {
+                            log.error("发送优惠券短信失败, phone={}", user.get("phone"), ex);
+                        }
                     }
                 }
             } catch (Exception e) {
