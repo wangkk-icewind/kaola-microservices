@@ -37,4 +37,18 @@ public class AdminSmsController {
                                       @RequestParam(required = false) String couponName) {
         return Result.success(smsService.sendCouponNotify(phone, couponName));
     }
+
+    @Operation(summary = "发送预约成功通知", description = "订单支付成功后发送预约成功短信")
+    @PostMapping("/send-booking")
+    public Result<Boolean> sendBooking(@RequestBody java.util.Map<String, String> body) {
+        return Result.success(smsService.sendBookingSuccess(
+                body.get("phone"), body.get("store"), body.get("time"),
+                body.get("service"), body.get("name")));
+    }
+
+    @Operation(summary = "发送服务后返券通知", description = "服务完成返券时发送短信")
+    @PostMapping("/send-return")
+    public Result<Boolean> sendReturn(@RequestParam String phone, @RequestParam String sum) {
+        return Result.success(smsService.sendReturnCoupon(phone, sum));
+    }
 }

@@ -64,6 +64,14 @@ public interface PromotionService {
      */
     boolean restoreCoupon(Long userCouponId);
 
+    /**
+     * 服务完成发放「完成奖励券」给用户，返回券面额（无生效奖励券时返回 null）。
+     *
+     * @param userId 用户ID
+     * @return 券面额，或 null
+     */
+    java.math.BigDecimal issueCompletionReward(Long userId);
+
     // ==================== Admin 端方法 ====================
 
     /**

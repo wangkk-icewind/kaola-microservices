@@ -87,12 +87,64 @@ public class SmsService {
                 log.warn("优惠券短信凭证/模板未配置，跳过发送 phone={}", phone);
                 return false;
             }
-            String param = "{\"name\":\"" + (couponName != null ? couponName : "优惠券") + "\"}";
-            return sendSms(ak, sk, phone, sign, template, param);
+            // 批量发券通知模板(SMS_506530132)为固定文案、无变量 → 不传 TemplateParam
+            return sendSms(ak, sk, phone, sign, template, null);
         } catch (Exception e) {
             log.error("优惠券短信发送异常 phone={}", phone, e);
             return false;
         }
+    }
+
+    /**
+     * 订单预约成功通知（模板变量 store/time/service/name）。失败仅记日志。
+     */
+    public boolean sendBookingSuccess(String phone, String store, String time, String service, String name) {
+        try {
+            validatePhone(phone);
+            String ak = cfg("sms_access_key"), sk = cfg("sms_secret"), sign = cfg("sms_sign_name");
+            String template = cfg("sms_template_booking");
+            if (!ready(ak, sk, sign, template)) {
+                log.warn("预约成功短信凭证/模板未配置，跳过 phone={}", phone);
+                return false;
+            }
+            java.util.Map<String, String> p = new java.util.HashMap<>();
+            p.put("store", nz(store)); p.put("time", nz(time));
+            p.put("service", nz(service)); p.put("name", nz(name));
+            return sendSms(ak, sk, phone, sign, template, com.alibaba.fastjson2.JSON.toJSONString(p));
+        } catch (Exception e) {
+            log.error("预约成功短信发送异常 phone={}", phone, e);
+            return false;
+        }
+    }
+
+    /**
+     * 服务后返券通知（模板变量 sum）。失败仅记日志。
+     */
+    public boolean sendReturnCoupon(String phone, String sum) {
+        try {
+            validatePhone(phone);
+            String ak = cfg("sms_access_key"), sk = cfg("sms_secret"), sign = cfg("sms_sign_name");
+            String template = cfg("sms_template_return");
+            if (!ready(ak, sk, sign, template)) {
+                log.warn("返券短信凭证/模板未配置，跳过 phone={}", phone);
+                return false;
+            }
+            java.util.Map<String, String> p = new java.util.HashMap<>();
+            p.put("sum", nz(sum));
+            return sendSms(ak, sk, phone, sign, template, com.alibaba.fastjson2.JSON.toJSONString(p));
+        } catch (Exception e) {
+            log.error("返券短信发送异常 phone={}", phone, e);
+            return false;
+        }
+    }
+
+    private boolean ready(String ak, String sk, String sign, String template) {
+        return StringUtils.hasText(ak) && StringUtils.hasText(sk)
+                && StringUtils.hasText(sign) && StringUtils.hasText(template);
+    }
+
+    private String nz(String s) {
+        return s != null ? s : "";
     }
 
     /** 调用阿里云 SendSms，Code==OK 视为成功。 */

@@ -66,6 +66,7 @@ public class OrderServiceImpl implements OrderService {
 
     private static final String PRODUCT_SERVICE_URL = "http://localhost:8085";
     private static final String MARKETING_SERVICE_URL = "http://localhost:8092";
+    private static final String ADMIN_SERVICE_URL = "http://localhost:8095";
 
     @Override
     @Transactional
@@ -426,8 +427,35 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(OrderStatus.COMPLETED.getCode());
+        boolean ok = orderRepository.updateById(order) > 0;
+        // 服务完成 → 发放完成奖励券并发返券短信（仅服务订单）
+        if (ok && "SERVICE".equals(order.getOrderType())) {
+            sendReturnCouponSms(order);
+        }
+        return ok;
+    }
 
-        return orderRepository.updateById(order) > 0;
+    /** 服务完成发放奖励券 + 返券短信。失败不影响完成。 */
+    @SuppressWarnings("unchecked")
+    private void sendReturnCouponSms(Order order) {
+        try {
+            // marketing 发放完成奖励券，返回券面额（sum）
+            Map<String, Object> resp = restTemplate.postForObject(
+                    MARKETING_SERVICE_URL + "/coupon/issue-completion-reward?userId=" + order.getUserId(),
+                    null, Map.class);
+            if (resp == null || !Integer.valueOf(0).equals(resp.get("code")) || resp.get("data") == null) {
+                return; // 无奖励券配置或发放失败
+            }
+            String sum = resp.get("data").toString();
+            String phone = getUserPhone(order.getUserId());
+            if (phone == null || phone.isBlank()) return;
+            restTemplate.postForObject(
+                    ADMIN_SERVICE_URL + "/admin/sms/send-return?phone=" + phone + "&sum=" + sum,
+                    null, Map.class);
+            log.info("返券短信已触发, orderNo={}, sum={}", order.getOrderNo(), sum);
+        } catch (Exception e) {
+            log.error("返券短信触发失败, orderId={}", order.getId(), e);
+        }
     }
 
     @Override
@@ -496,7 +524,48 @@ public class OrderServiceImpl implements OrderService {
         }
         order.setStatus(OrderStatus.PAID.getCode());
         order.setPayTime(LocalDateTime.now());
-        return orderRepository.updateById(order) > 0;
+        boolean ok = orderRepository.updateById(order) > 0;
+        // 服务订单支付成功 → 发预约成功短信
+        if (ok && "SERVICE".equals(order.getOrderType())) {
+            sendBookingSms(order);
+        }
+        return ok;
+    }
+
+    /** 预约成功短信（仅有手机号用户）。失败不影响主流程。 */
+    private void sendBookingSms(Order order) {
+        try {
+            String phone = getUserPhone(order.getUserId());
+            if (phone == null || phone.isBlank()) return;
+            OrderVO vo = getOrderDetail(order.getId());
+            String store = vo.getStoreName();
+            String time = "";
+            if (vo.getAppointmentDate() != null) time += vo.getAppointmentDate().format(java.time.format.DateTimeFormatter.ofPattern("M月d日"));
+            if (vo.getAppointmentTime() != null) time += vo.getAppointmentTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            String service = "", name = "";
+            if (vo.getItems() != null && !vo.getItems().isEmpty()) {
+                service = vo.getItems().get(0).getProjectName();
+                name = vo.getItems().get(0).getMasseurName();
+            }
+            Map<String, String> body = new HashMap<>();
+            body.put("phone", phone); body.put("store", store); body.put("time", time);
+            body.put("service", service); body.put("name", name);
+            restTemplate.postForObject(ADMIN_SERVICE_URL + "/admin/sms/send-booking", body, Map.class);
+            log.info("预约成功短信已触发, orderNo={}, phone={}", order.getOrderNo(), phone);
+        } catch (Exception e) {
+            log.error("预约成功短信触发失败, orderId={}", order.getId(), e);
+        }
+    }
+
+    /** 取用户手机号（无则返回 null）。 */
+    private String getUserPhone(Long userId) {
+        try {
+            Result<UserServiceClient.UserVO> r = userServiceClient.getUserInfo(userId);
+            if (r != null && r.getData() != null) return r.getData().getPhone();
+        } catch (Exception e) {
+            log.warn("获取用户手机号失败, userId={}", userId);
+        }
+        return null;
     }
 
     /**

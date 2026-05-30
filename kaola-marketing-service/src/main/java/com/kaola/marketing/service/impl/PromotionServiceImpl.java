@@ -170,6 +170,23 @@ public class PromotionServiceImpl implements PromotionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public java.math.BigDecimal issueCompletionReward(Long userId) {
+        Coupon reward = couponMapper.findActiveCompletionReward();
+        if (reward == null) {
+            log.info("无生效的完成奖励券，跳过返券, userId={}", userId);
+            return null;
+        }
+        UserCoupon uc = new UserCoupon();
+        uc.setUserId(userId);
+        uc.setCouponId(reward.getId());
+        uc.setStatus(0);
+        userCouponMapper.insert(uc);
+        log.info("发放完成奖励券, userId={}, couponId={}, value={}", userId, reward.getId(), reward.getValue());
+        return reward.getValue();
+    }
+
+    @Override
     public List<PromotionVO> getStoreDiscounts(Long storeId) {
         log.info("获取门店时段折扣, storeId: {}", storeId);
 

@@ -49,4 +49,11 @@ public interface CouponMapper extends BaseMapper<Coupon> {
      */
     @Select("SELECT * FROM t_coupon WHERE code = #{code} AND deleted = 0")
     Coupon findByCode(@Param("code") String code);
+
+    /**
+     * 查询当前生效的「完成奖励券」（服务完成自动返券用），取一张。
+     */
+    @Select("SELECT * FROM t_coupon WHERE is_completion_reward = 1 AND status = 1 AND deleted = 0 " +
+            "AND start_time <= NOW() AND end_time >= NOW() ORDER BY id LIMIT 1")
+    Coupon findActiveCompletionReward();
 }

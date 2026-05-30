@@ -150,4 +150,11 @@ public class PromotionController {
         boolean success = promotionService.restoreCoupon(couponId);
         return Result.success(success);
     }
+
+    @Operation(summary = "发放完成奖励券", description = "服务完成自动返券，返回券面额")
+    @PostMapping("/coupon/issue-completion-reward")
+    public Result<java.math.BigDecimal> issueCompletionReward(
+            @RequestParam @NotNull(message = "用户ID不能为空") Long userId) {
+        return Result.success(promotionService.issueCompletionReward(userId));
+    }
 }
