@@ -169,9 +169,26 @@ public class UserServiceImpl implements UserService {
         userVO.setAvatar(user.getAvatar());
         userVO.setPhone(user.getPhone());
         userVO.setGender(user.getGender() != null ? user.getGender() : 0);
+        userVO.setCity(user.getCity());
+        userVO.setPoint(user.getPoint() != null ? user.getPoint() : 0);
+        userVO.setLevel(user.getLevel() != null ? user.getLevel() : 1);
+        userVO.setLevelName(getLevelName(user.getLevel()));
+        userVO.setCreateTime(user.getCreateTime());
         loginVO.setUserInfo(userVO);
 
         return loginVO;
+    }
+
+    /** 会员等级名称（与 t_user.level 注释一致） */
+    private String getLevelName(Integer level) {
+        if (level == null) return "普通会员";
+        switch (level) {
+            case 1: return "普通会员";
+            case 2: return "银卡会员";
+            case 3: return "金卡会员";
+            case 4: return "钻石会员";
+            default: return "普通会员";
+        }
     }
 
     @Override
@@ -215,6 +232,11 @@ public class UserServiceImpl implements UserService {
         vo.setAvatar(user.getAvatar());
         vo.setPhone(user.getPhone());
         vo.setGender(user.getGender() != null ? user.getGender() : 0);
+        vo.setCity(user.getCity());
+        vo.setPoint(user.getPoint() != null ? user.getPoint() : 0);
+        vo.setLevel(user.getLevel() != null ? user.getLevel() : 1);
+        vo.setLevelName(getLevelName(user.getLevel()));
+        vo.setCreateTime(user.getCreateTime());
         return vo;
     }
 }
