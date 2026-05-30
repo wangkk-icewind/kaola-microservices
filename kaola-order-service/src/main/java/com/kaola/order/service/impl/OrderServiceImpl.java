@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -131,6 +132,9 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.insert(order);
 
+        // 服务端判定新老客（用于新客促销），不信任前端
+        boolean isNewCustomer = !hasCompletedOrders(userId);
+
         // 处理订单项并计算总金额
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
@@ -192,12 +196,14 @@ public class OrderServiceImpl implements OrderService {
                 price = priceObj instanceof Number ?
                     new BigDecimal(priceObj.toString()) : BigDecimal.ZERO;
 
-                // 调用定价服务计算含等级/时段/门店系数的动态价格
-                BigDecimal dynamicPrice = calculateDynamicPrice(
+                // 调用定价服务计算含等级/时段/门店系数 + 最优促销 的动态价格
+                // 使用 finalPrice（已减最优促销，与前端展示口径一致），而非促销前的 servicePrice
+                DynamicPrice dp = calculateDynamicPrice(
                         itemDTO.getProjectId(), itemDTO.getMasseurId(),
-                        dto.getStoreId(), dto.getAppointmentDate(), dto.getAppointmentTime());
-                if (dynamicPrice != null) {
-                    price = dynamicPrice;
+                        dto.getStoreId(), dto.getAppointmentDate(), dto.getAppointmentTime(),
+                        isNewCustomer);
+                if (dp != null && dp.finalPrice != null) {
+                    price = dp.finalPrice;
                 }
                 orderItem.setPrice(price);
 
@@ -206,13 +212,22 @@ public class OrderServiceImpl implements OrderService {
                     ((Number) durationObj).intValue() : 0;
                 orderItem.setDuration(duration);
 
-                // 处理加钟：优先用项目配置的每分钟单价，否则用前端传入的 extraPrice
+                // 处理加钟：与前端口径一致 = ceil(每分钟单价 × 综合系数 × 加钟分钟)
                 if (itemDTO.getExtraDuration() != null && itemDTO.getExtraDuration() > 0) {
                     orderItem.setExtraDuration(itemDTO.getExtraDuration());
-                    Object rateObj = projectInfo != null ? projectInfo.get("extraPricePerMinute") : null;
-                    if (rateObj instanceof Number) {
-                        BigDecimal ratePerMin = new BigDecimal(rateObj.toString());
-                        orderItem.setExtraPrice(ratePerMin.multiply(new BigDecimal(itemDTO.getExtraDuration())));
+                    BigDecimal perMin = dp != null && dp.extraPricePerMinute != null
+                            ? dp.extraPricePerMinute : null;
+                    if (perMin == null) {
+                        Object rateObj = projectInfo.get("extraPricePerMinute");
+                        if (rateObj instanceof Number) perMin = new BigDecimal(rateObj.toString());
+                    }
+                    BigDecimal combined = dp != null && dp.combinedMultiplier != null
+                            ? dp.combinedMultiplier : BigDecimal.ONE;
+                    if (perMin != null && perMin.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal extra = perMin.multiply(combined)
+                                .multiply(new BigDecimal(itemDTO.getExtraDuration()))
+                                .setScale(0, RoundingMode.CEILING);
+                        orderItem.setExtraPrice(extra);
                     } else if (itemDTO.getExtraPrice() != null && itemDTO.getExtraPrice().compareTo(BigDecimal.ZERO) > 0) {
                         orderItem.setExtraPrice(itemDTO.getExtraPrice());
                     } else {
@@ -598,8 +613,21 @@ public class OrderServiceImpl implements OrderService {
      * 若调用失败则返回 null，调用方回退到基础价格
      */
     @SuppressWarnings("unchecked")
-    private BigDecimal calculateDynamicPrice(Long projectId, Long masseurId, Long storeId,
-                                              String appointmentDate, String appointmentTime) {
+    /** 动态价结果：finalPrice(含最优促销) + 综合系数 + 加钟每分钟单价 */
+    private static class DynamicPrice {
+        final BigDecimal finalPrice;
+        final BigDecimal combinedMultiplier;
+        final BigDecimal extraPricePerMinute;
+        DynamicPrice(BigDecimal finalPrice, BigDecimal combinedMultiplier, BigDecimal extraPricePerMinute) {
+            this.finalPrice = finalPrice;
+            this.combinedMultiplier = combinedMultiplier;
+            this.extraPricePerMinute = extraPricePerMinute;
+        }
+    }
+
+    private DynamicPrice calculateDynamicPrice(Long projectId, Long masseurId, Long storeId,
+                                              String appointmentDate, String appointmentTime,
+                                              Boolean isNewCustomer) {
         try {
             if (projectId == null || appointmentDate == null || appointmentTime == null) {
                 return null;
@@ -622,6 +650,7 @@ public class OrderServiceImpl implements OrderService {
             reqBody.put("masseurLevel", masseurLevel);
             reqBody.put("storeId", storeId != null ? storeId : 1L);
             reqBody.put("appointmentTime", appointmentDateTime);
+            reqBody.put("isNewCustomer", Boolean.TRUE.equals(isNewCustomer));
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -634,14 +663,30 @@ public class OrderServiceImpl implements OrderService {
             Map<String, Object> body = resp.getBody();
             if (body != null && Integer.valueOf(0).equals(body.get("code"))) {
                 Map<String, Object> data = (Map<String, Object>) body.get("data");
-                if (data != null && data.get("servicePrice") != null) {
-                    return new BigDecimal(data.get("servicePrice").toString());
+                // 优先用 finalPrice（已减最优促销）；缺失时回退 servicePrice
+                Object fp = data != null ? data.get("finalPrice") : null;
+                if (fp == null && data != null) fp = data.get("servicePrice");
+                if (fp != null) {
+                    BigDecimal finalPrice = new BigDecimal(fp.toString());
+                    BigDecimal combined = mul(num(data.get("levelMultiplier")),
+                            mul(num(data.get("timeSlotMultiplier")), num(data.get("storeMultiplier"))));
+                    BigDecimal perMin = data.get("extraPricePerMinute") != null
+                            ? new BigDecimal(data.get("extraPricePerMinute").toString()) : null;
+                    return new DynamicPrice(finalPrice, combined, perMin);
                 }
             }
         } catch (Exception e) {
             log.warn("动态价格计算失败，回退到基础价格. projectId={}, masseurId={}", projectId, masseurId, e);
         }
         return null;
+    }
+
+    private static BigDecimal num(Object o) {
+        return o == null ? BigDecimal.ONE : new BigDecimal(o.toString());
+    }
+
+    private static BigDecimal mul(BigDecimal a, BigDecimal b) {
+        return (a == null ? BigDecimal.ONE : a).multiply(b == null ? BigDecimal.ONE : b);
     }
 
     /**
