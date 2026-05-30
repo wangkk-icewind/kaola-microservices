@@ -59,6 +59,10 @@ public class OrderServiceImpl implements OrderService {
     private final PaymentServiceClient paymentServiceClient;
     private final UserServiceClient userServiceClient;
 
+    /** 模拟支付开关：生产环境为 false，禁止 /pay 直接将订单标记为已支付（须走真实微信支付） */
+    @org.springframework.beans.factory.annotation.Value("${order.mock-pay-enabled:false}")
+    private boolean mockPayEnabled;
+
     private static final String PRODUCT_SERVICE_URL = "http://localhost:8085";
     private static final String MARKETING_SERVICE_URL = "http://localhost:8092";
 
@@ -386,7 +390,10 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public boolean payOrder(Long orderId) {
-        log.info("支付通知回调, orderId: {}", orderId);
+        log.info("模拟支付, orderId: {}", orderId);
+        if (!mockPayEnabled) {
+            throw new RuntimeException("模拟支付已禁用，请通过微信支付完成付款");
+        }
 
         Order order = orderRepository.selectById(orderId);
         if (order == null) {
@@ -403,6 +410,27 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.PAID.getCode());
         order.setPayTime(LocalDateTime.now());
         return orderRepository.updateById(order) > 0;
+    }
+
+    @Override
+    public OrderVO getOrderPayParams(Long userId, Long orderId) {
+        log.info("重新支付取参, userId={}, orderId={}", userId, orderId);
+
+        Order order = orderRepository.selectById(orderId);
+        if (order == null) {
+            throw new RuntimeException("订单不存在: " + orderId);
+        }
+        if (!order.getUserId().equals(userId)) {
+            throw new RuntimeException("无权操作该订单");
+        }
+        if (!OrderStatus.PENDING_PAYMENT.getCode().equals(order.getStatus())) {
+            throw new RuntimeException("订单状态不可支付");
+        }
+
+        OrderVO vo = getOrderDetail(orderId);
+        // payment-service 会复用已有待支付记录，避免重复创建预支付
+        vo.setWxPayParams(createWechatPayParams(order, userId));
+        return vo;
     }
 
     /**

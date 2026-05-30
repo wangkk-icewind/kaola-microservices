@@ -84,6 +84,16 @@ public interface OrderService {
     boolean payOrder(Long orderId);
 
     /**
+     * 重新支付：获取待支付订单的微信调起参数（wxPayParams）。
+     * 校验订单归属与待支付状态，复用 payment-service 的待支付记录。
+     *
+     * @param userId  当前用户ID（鉴权）
+     * @param orderId 订单ID
+     * @return 含 wxPayParams 的订单详情
+     */
+    OrderVO getOrderPayParams(Long userId, Long orderId);
+
+    /**
      * 微信支付成功后由 payment-service 回调，通过 orderNo 将订单标记为已支付
      */
     boolean markOrderPaid(String orderNo, String transactionId);

@@ -156,13 +156,25 @@ public class OrderController {
      * 支付订单（模拟支付，开发环境使用）
      * 将订单状态从待支付(1)变为待服务(2)
      */
-    @Operation(summary = "支付订单", description = "模拟支付，将订单从待支付变为待服务")
+    @Operation(summary = "支付订单", description = "模拟支付（仅开发/mock 模式启用），将订单从待支付变为待服务")
     @PostMapping("/{id}/pay")
     public Result<Boolean> payOrder(
             @Parameter(description = "订单ID", required = true)
             @PathVariable @NotNull(message = "订单ID不能为空") Long id) {
         boolean success = orderService.payOrder(id);
         return Result.success(success);
+    }
+
+    /**
+     * 重新支付：获取待支付订单的微信调起参数，小程序据此调用 wx.requestPayment。
+     */
+    @Operation(summary = "重新支付", description = "获取待支付订单的微信调起参数 wxPayParams")
+    @PostMapping("/{id}/wxpay")
+    public Result<OrderVO> wxpayOrder(
+            @RequestHeader("X-User-Id") Long userId,
+            @Parameter(description = "订单ID", required = true)
+            @PathVariable @NotNull(message = "订单ID不能为空") Long id) {
+        return Result.success(orderService.getOrderPayParams(userId, id));
     }
 
     /**
