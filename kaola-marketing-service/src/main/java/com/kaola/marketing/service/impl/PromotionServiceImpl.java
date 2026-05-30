@@ -151,6 +151,25 @@ public class PromotionServiceImpl implements PromotionService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean restoreCoupon(Long userCouponId) {
+        log.info("回退优惠券, userCouponId: {}", userCouponId);
+        UserCoupon userCoupon = userCouponMapper.selectById(userCouponId);
+        if (userCoupon == null) {
+            log.warn("回退优惠券：券不存在 userCouponId={}", userCouponId);
+            return false;
+        }
+        // 仅已使用(1)的券需要回退；其它状态忽略，保持幂等
+        if (userCoupon.getStatus() == null || userCoupon.getStatus() != 1) {
+            return true;
+        }
+        userCoupon.setStatus(0);
+        userCoupon.setOrderId(null);
+        userCoupon.setUseTime(null);
+        return userCouponMapper.updateById(userCoupon) > 0;
+    }
+
+    @Override
     public List<PromotionVO> getStoreDiscounts(Long storeId) {
         log.info("获取门店时段折扣, storeId: {}", storeId);
 

@@ -264,8 +264,14 @@ public class OrderServiceImpl implements OrderService {
         if (dto.getCouponId() != null) {
             BigDecimal discountAmount = validateAndGetDiscount(dto.getCouponId(), userId, totalAmount, dto.getStoreId(),
                     dto.getItems() == null ? null : dto.getItems().stream()
-                            .map(OrderItemDTO::getProjectId).filter(id -> id != null).collect(Collectors.toList()));
+                            .map(OrderItemDTO::getProjectId).filter(id -> id != null).collect(Collectors.toList()),
+                    isNewCustomer);
             order.setDiscountAmount(discountAmount);
+            // 券有效(折扣>0)才核销并记录 couponId，便于取消时回退；无效券不消耗
+            if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+                order.setCouponId(dto.getCouponId());
+                consumeCoupon(order.getId(), dto.getCouponId());
+            }
         }
         order.setPayAmount(totalAmount.subtract(order.getDiscountAmount()));
         log.info("更新订单前: orderId={}, orderType={}, totalAmount={}", order.getId(), order.getOrderType(), totalAmount);
@@ -332,8 +338,13 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED.getCode());
+        boolean ok = orderRepository.updateById(order) > 0;
 
-        return orderRepository.updateById(order) > 0;
+        // 回退已核销的优惠券
+        if (ok && order.getCouponId() != null) {
+            restoreCoupon(order.getCouponId());
+        }
+        return ok;
     }
 
     @Override
@@ -751,12 +762,13 @@ public class OrderServiceImpl implements OrderService {
      */
     @SuppressWarnings("unchecked")
     private BigDecimal validateAndGetDiscount(Long userCouponId, Long userId, BigDecimal orderAmount,
-                                               Long storeId, List<Long> projectIds) {
+                                               Long storeId, List<Long> projectIds, boolean isNewCustomer) {
         try {
             Map<String, Object> reqBody = new HashMap<>();
             reqBody.put("userCouponId", userCouponId);
             reqBody.put("userId", userId);
             reqBody.put("orderAmount", orderAmount);
+            reqBody.put("isNewCustomer", isNewCustomer);
             if (storeId != null) reqBody.put("storeId", storeId);
             if (projectIds != null && !projectIds.isEmpty()) reqBody.put("projectIds", projectIds);
 
@@ -779,6 +791,30 @@ public class OrderServiceImpl implements OrderService {
             log.warn("优惠券验证失败，不应用折扣. userCouponId={}", userCouponId, e);
         }
         return BigDecimal.ZERO;
+    }
+
+    /** 核销优惠券（下单时）。失败仅记日志，不阻断下单。 */
+    private void consumeCoupon(Long orderId, Long userCouponId) {
+        try {
+            restTemplate.postForObject(
+                    MARKETING_SERVICE_URL + "/coupon/apply?orderId=" + orderId + "&couponId=" + userCouponId,
+                    null, Map.class);
+            log.info("优惠券已核销, orderId={}, userCouponId={}", orderId, userCouponId);
+        } catch (Exception e) {
+            log.error("优惠券核销失败（折扣已应用但券未标记已用）, orderId={}, userCouponId={}", orderId, userCouponId, e);
+        }
+    }
+
+    /** 回退优惠券（取消订单时）。失败仅记日志。 */
+    private void restoreCoupon(Long userCouponId) {
+        try {
+            restTemplate.postForObject(
+                    MARKETING_SERVICE_URL + "/coupon/restore?couponId=" + userCouponId,
+                    null, Map.class);
+            log.info("优惠券已回退, userCouponId={}", userCouponId);
+        } catch (Exception e) {
+            log.error("优惠券回退失败, userCouponId={}", userCouponId, e);
+        }
     }
 
     @Override

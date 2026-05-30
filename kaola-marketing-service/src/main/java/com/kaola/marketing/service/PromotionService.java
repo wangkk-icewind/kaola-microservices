@@ -56,6 +56,14 @@ public interface PromotionService {
      */
     boolean applyCoupon(Long orderId, Long couponId);
 
+    /**
+     * 回退优惠券（订单取消时调用）：已使用的券恢复为未使用，清空关联订单。
+     *
+     * @param userCouponId 用户优惠券ID
+     * @return 是否成功
+     */
+    boolean restoreCoupon(Long userCouponId);
+
     // ==================== Admin 端方法 ====================
 
     /**

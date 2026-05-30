@@ -60,6 +60,12 @@ public class Order extends BaseEntity {
     private BigDecimal payAmount;
 
     /**
+     * 使用的用户优惠券ID (用于取消时回退；NULL=未用券)
+     */
+    @TableField("coupon_id")
+    private Long couponId;
+
+    /**
      * 订单状态 (0-已取消 1-待支付 2-已支付 3-服务中 4-已完成 5-已评价 6-已退款)
      */
     @TableField("status")

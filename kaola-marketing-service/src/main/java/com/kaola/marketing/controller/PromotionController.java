@@ -141,4 +141,13 @@ public class PromotionController {
         boolean success = promotionService.applyCoupon(orderId, couponId);
         return Result.success(success);
     }
+
+    @Operation(summary = "回退优惠券", description = "订单取消时将已使用的券恢复为未使用")
+    @PostMapping("/coupon/restore")
+    public Result<Boolean> restoreCoupon(
+            @Parameter(description = "用户优惠券ID", required = true)
+            @RequestParam @NotNull(message = "优惠券ID不能为空") Long couponId) {
+        boolean success = promotionService.restoreCoupon(couponId);
+        return Result.success(success);
+    }
 }
