@@ -279,8 +279,10 @@ public class ReviewController {
             return Result.error("评价不存在");
         }
 
-        review.setDeleted(1);
-        int rows = reviewMapper.updateById(review);
+        // 逻辑删除：MyBatis-Plus 全局配置 logic-delete-field=deleted，
+        // deleteById 会生成 UPDATE ... SET deleted=1。
+        // 不能用 updateById 手动改 deleted —— 逻辑删除字段会被框架从 SET 中剔除，导致删除空操作。
+        int rows = reviewMapper.deleteById(id);
         return rows > 0 ? Result.success(true) : Result.error("删除失败");
     }
 }
