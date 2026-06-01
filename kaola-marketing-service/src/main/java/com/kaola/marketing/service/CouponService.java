@@ -105,4 +105,13 @@ public interface CouponService {
      * @return 验证结果（是否可用、优惠金额、最终金额）
      */
     ValidateCouponResponse validateCoupon(ValidateCouponRequest request);
+
+    /**
+     * 订单完成时自动发放「完成奖励券」(isCompletionReward=1) 给该用户。
+     * 每张券每人限领一次；客群约束：新客券(customerType=1)不发给已下单用户。
+     *
+     * @param userId 用户ID
+     * @return 本次发放的优惠券面额合计（用于返券短信展示）；无发放返回 0
+     */
+    java.math.BigDecimal issueCompletionRewardCoupons(Long userId);
 }

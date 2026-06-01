@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 价格计算响应VO
@@ -19,6 +20,24 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Schema(description = "价格计算响应")
 public class PriceCalculationVO {
+
+    /**
+     * 分项优惠明细：所有 amount 之和 = originalPrice - finalPrice（不含加钟）。
+     * type: merchant=商家立减(原价-卖价)，promotion=促销活动。
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Schema(description = "分项优惠明细")
+    public static class DiscountDetailVO {
+        @Schema(description = "优惠名称", example = "商家立减")
+        private String name;
+        @Schema(description = "优惠类型：merchant/promotion", example = "merchant")
+        private String type;
+        @Schema(description = "优惠金额", example = "21")
+        private BigDecimal amount;
+    }
 
     @Schema(description = "基础价格", example = "188.00")
     private BigDecimal basePrice;
@@ -61,4 +80,7 @@ public class PriceCalculationVO {
 
     @Schema(description = "项目时长（分钟）", example = "60")
     private Integer duration;
+
+    @Schema(description = "分项优惠明细（商家立减 + 促销活动，可用于结算页逐项展示）")
+    private List<DiscountDetailVO> discounts;
 }

@@ -172,18 +172,13 @@ public class PromotionServiceImpl implements PromotionService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public java.math.BigDecimal issueCompletionReward(Long userId) {
-        Coupon reward = couponMapper.findActiveCompletionReward();
-        if (reward == null) {
-            log.info("无生效的完成奖励券，跳过返券, userId={}", userId);
+        // 委托给完整实现：支持多张券、客群约束、库存与"每人限领一次"幂等。
+        java.math.BigDecimal sum = couponService.issueCompletionRewardCoupons(userId);
+        // 无券可发（或本次未发放）时返回 null，使 order-service 跳过返券短信
+        if (sum == null || sum.compareTo(java.math.BigDecimal.ZERO) <= 0) {
             return null;
         }
-        UserCoupon uc = new UserCoupon();
-        uc.setUserId(userId);
-        uc.setCouponId(reward.getId());
-        uc.setStatus(0);
-        userCouponMapper.insert(uc);
-        log.info("发放完成奖励券, userId={}, couponId={}, value={}", userId, reward.getId(), reward.getValue());
-        return reward.getValue();
+        return sum;
     }
 
     @Override

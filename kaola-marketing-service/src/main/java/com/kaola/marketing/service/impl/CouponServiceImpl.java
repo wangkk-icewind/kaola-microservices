@@ -239,6 +239,51 @@ public class CouponServiceImpl implements CouponService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public synchronized BigDecimal issueCompletionRewardCoupons(Long userId) {
+        if (userId == null) return BigDecimal.ZERO;
+        LocalDateTime now = LocalDateTime.now();
+
+        // 启用中的"完成奖励券"
+        List<Coupon> coupons = couponMapper.selectList(new LambdaQueryWrapper<Coupon>()
+                .eq(Coupon::getIsCompletionReward, 1)
+                .eq(Coupon::getStatus, 1));
+
+        BigDecimal totalIssued = BigDecimal.ZERO;
+        for (Coupon coupon : coupons) {
+            // 有效期
+            if (coupon.getStartTime() != null && now.isBefore(coupon.getStartTime())) continue;
+            if (coupon.getEndTime() != null && now.isAfter(coupon.getEndTime())) continue;
+            // 客群：新客券(1)不发给已下单用户（订单完成的用户已是老客）；0全部、2老客均可发
+            if (coupon.getCustomerType() != null && coupon.getCustomerType() == 1) continue;
+            // 每人限领一次
+            Long owned = userCouponMapper.selectCount(new LambdaQueryWrapper<UserCoupon>()
+                    .eq(UserCoupon::getUserId, userId)
+                    .eq(UserCoupon::getCouponId, coupon.getId()));
+            if (owned != null && owned > 0) continue;
+            // 库存（按已发放的 user_coupon 数量计）
+            if (coupon.getTotalCount() != null) {
+                Long issued = userCouponMapper.selectCount(new LambdaQueryWrapper<UserCoupon>()
+                        .eq(UserCoupon::getCouponId, coupon.getId()));
+                if (issued != null && issued >= coupon.getTotalCount()) continue;
+            }
+            // 发放
+            UserCoupon uc = new UserCoupon();
+            uc.setUserId(userId);
+            uc.setCouponId(coupon.getId());
+            uc.setStatus(0); // 未使用
+            if (userCouponMapper.insert(uc) > 0) {
+                // 面额累计：满减(1)/无门槛(3) 计 value；折扣券(2) 不计金额
+                if (coupon.getValue() != null && (coupon.getType() == null || coupon.getType() != 2)) {
+                    totalIssued = totalIssued.add(coupon.getValue());
+                }
+            }
+        }
+        log.info("完成奖励券发放: userId={}, 面额合计={}", userId, totalIssued);
+        return totalIssued;
+    }
+
+    @Override
     public List<AvailableCouponVO> getAvailableCoupons(CheckAvailableRequest request) {
         log.info("获取可用优惠券列表, userId: {}, orderAmount: {}", request.getUserId(), request.getOrderAmount());
 

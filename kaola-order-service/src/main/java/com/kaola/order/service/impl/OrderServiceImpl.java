@@ -955,6 +955,12 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.countCompletedByUserId(userId) > 0;
     }
 
+    @Override
+    public int countServedCustomersByMasseur(Long masseurId) {
+        if (masseurId == null) return 0;
+        return orderRepository.countDistinctCustomersByMasseur(masseurId);
+    }
+
     private void fillStoreInfo(OrderVO vo, Long storeId) {
         if (storeId == null) {
             vo.setStoreName("考拉推拿连锁店");

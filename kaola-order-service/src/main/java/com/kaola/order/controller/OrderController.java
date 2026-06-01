@@ -40,6 +40,16 @@ public class OrderController {
      * @param dto    订单数据
      * @return 订单信息
      */
+    /**
+     * 统计技师服务过的客户数（已完成/已评价订单去重客户数）。
+     * 供 masseur-service 通过 Feign 调用回填技师详情的 orderCount。
+     */
+    @Operation(summary = "技师服务客户数", description = "统计技师已完成订单的去重客户数")
+    @GetMapping("/count")
+    public Result<Integer> getServedCustomerCount(@RequestParam("masseurId") Long masseurId) {
+        return Result.success(orderService.countServedCustomersByMasseur(masseurId));
+    }
+
     @Operation(summary = "创建订单", description = "创建预约订单")
     @PostMapping("/create")
     public Result<OrderVO> createOrder(
