@@ -86,4 +86,10 @@ public class Coupon extends BaseEntity {
      */
     @TableField("customer_type")
     private Integer customerType;
+
+    /**
+     * 完成奖励券 (0-否 1-是)：启用后用户每完成一笔订单自动发放一张（每人限领一次）
+     */
+    @TableField("is_completion_reward")
+    private Integer isCompletionReward;
 }

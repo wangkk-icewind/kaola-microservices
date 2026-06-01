@@ -86,6 +86,17 @@ public interface OrderMapper extends BaseMapper<Order> {
     IPage<Order> findByStoreId(Page<Order> page, @Param("storeId") Long storeId);
 
     /**
+     * 统计技师"服务过的客户数"：已完成(4)/已评价(5)订单中去重的下单用户数。
+     * 技师通过 t_order_item.masseur_id 关联。
+     */
+    @Select("SELECT COUNT(DISTINCT o.user_id) FROM t_order o " +
+            "INNER JOIN t_order_item oi ON o.id = oi.order_id " +
+            "WHERE oi.masseur_id = #{masseurId} " +
+            "AND o.status IN (4, 5) " +
+            "AND o.deleted = 0 AND oi.deleted = 0")
+    int countDistinctCustomersByMasseur(@Param("masseurId") Long masseurId);
+
+    /**
      * 检查技师在指定日期时段是否已有未取消的订单（用于防止重复预约）
      */
     @Select("SELECT COUNT(*) FROM t_order o " +

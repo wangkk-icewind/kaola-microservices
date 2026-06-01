@@ -191,7 +191,19 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                 ? projectExtraPPM
                 : basePrice.divide(new BigDecimal(dur), 4, BigDecimal.ROUND_FLOOR);
 
-        // 10. 构建返回结果
+        // 10. 构建分项优惠明细：商家立减(原价-卖价) + 促销活动；amount 之和 = originalPrice - finalPrice（不含加钟）
+        java.util.List<PriceCalculationVO.DiscountDetailVO> discounts = new java.util.ArrayList<>();
+        BigDecimal merchantDiscount = originalPrice.subtract(servicePrice);
+        if (merchantDiscount.compareTo(BigDecimal.ZERO) > 0) {
+            discounts.add(PriceCalculationVO.DiscountDetailVO.builder()
+                    .name("商家立减").type("merchant").amount(merchantDiscount).build());
+        }
+        if (discountAmount != null && discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+            discounts.add(PriceCalculationVO.DiscountDetailVO.builder()
+                    .name(promotionName != null ? promotionName : "活动优惠").type("promotion").amount(discountAmount).build());
+        }
+
+        // 11. 构建返回结果
         PriceCalculationVO result = PriceCalculationVO.builder()
                 .basePrice(basePrice)
                 .levelMultiplier(levelMultiplier)
@@ -206,6 +218,7 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                 .promotionType(promotionType)
                 .extraPricePerMinute(extraPricePerMinute)
                 .duration(projectDuration)
+                .discounts(discounts)
                 .build();
 
         log.info("价格计算完成: 基础价格={}, 服务价格={}, 加钟费用={}, 折扣={}/{}, 最终价格={}",
@@ -253,27 +266,26 @@ public class PricingConfigServiceImpl implements PricingConfigService {
             // 新客活动：isNewCustomer 必须为 true
             if (isNewCustomerPromo && !Boolean.TRUE.equals(isNewCustomer)) continue;
 
-            // store_discount：按 triggerType 校验时段/提前预约条件
-            if ("store_discount".equals(promo.getCategory())) {
-                String triggerType = rules.getString("triggerType");
-                boolean hasTimeSlot = rules.getString("timeSlotStart") != null;
-
-                if ("time_slot".equals(triggerType) || (triggerType == null && hasTimeSlot)) {
-                    // 有时段配置：检查预约时间是否在 timeSlotStart~timeSlotEnd 时段内
-                    if (!isAppointmentInTimeSlot(appointmentTime, rules)) continue;
-                } else if ("advance_booking".equals(triggerType)) {
-                    // 提前预约：检查是否提前足够时间预约（当前时间距预约时间 >= advanceMinutes）
+            // 按 triggerType / 时段 校验生效条件（不限 store_discount，凡规则中声明了时间窗即严格校验，
+            // 避免错峰/时段折扣被误配成全天生效）。无 triggerType 且无时段配置：不限时段。
+            String triggerType = rules.getString("triggerType");
+            boolean hasTimeSlot = rules.getString("timeSlotStart") != null;
+            if (triggerType != null || hasTimeSlot) {
+                if ("advance_booking".equals(triggerType)) {
+                    // 提前预约：当前时间距预约时间 >= advanceMinutes
                     int advanceMins = rules.getIntValue("advanceMinutes");
                     if (advanceMins <= 0) advanceMins = 30;
                     long minutesAhead = java.time.Duration.between(now, appointmentTime).toMinutes();
                     if (minutesAhead < advanceMins) continue;
                 } else if ("off_peak".equals(triggerType)) {
-                    // 错峰折扣：仅工作日（周一至周五），且预约时间在配置的时段内
+                    // 错峰折扣：仅工作日（周一至周五），且预约时间在配置时段内
                     int dow = appointmentTime.getDayOfWeek().getValue(); // 1=周一, 7=周日
                     if (dow > 5) continue; // 周末不生效
                     if (!isAppointmentInTimeSlot(appointmentTime, rules)) continue;
+                } else {
+                    // time_slot 或仅配置了 timeSlotStart/End：检查预约时间是否在时段内
+                    if (!isAppointmentInTimeSlot(appointmentTime, rules)) continue;
                 }
-                // 无 triggerType 且无时段配置：不限时段，活动有效期内即可
             }
 
             BigDecimal minAmount = rules.getBigDecimal("minAmount");
@@ -306,8 +318,9 @@ public class PricingConfigServiceImpl implements PricingConfigService {
                 BigDecimal discountRate = rules.getBigDecimal("discount");
                 if (discountRate != null && discountRate.compareTo(BigDecimal.ONE) < 0
                         && discountRate.compareTo(BigDecimal.ZERO) > 0) {
+                    // 优惠金额向上取整(ceil)：如 52×(1-0.95)=2.6 → 减3，避免实付比标称高引发客诉
                     BigDecimal discount = servicePrice.multiply(BigDecimal.ONE.subtract(discountRate))
-                            .setScale(0, BigDecimal.ROUND_FLOOR);
+                            .setScale(0, BigDecimal.ROUND_CEILING);
                     // 应用 maxDiscount 封顶
                     BigDecimal maxDiscount = rules.getBigDecimal("maxDiscount");
                     if (maxDiscount != null && maxDiscount.compareTo(BigDecimal.ZERO) > 0) {

@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 public class MasseurServiceImpl implements MasseurService {
 
     private final MasseurMapper masseurMapper;
+    private final com.kaola.masseur.client.OrderServiceClient orderServiceClient;
 
     // TODO: Cross-service dependency - Login should be handled by auth service
     // @Override
@@ -76,6 +77,16 @@ public class MasseurServiceImpl implements MasseurService {
             return null;
         }
         MasseurVO vo = convertToVO(masseur);
+
+        // 回填"服务过的客户数"：调用 order-service 统计已完成订单去重客户数（失败则保持 0，不阻塞详情）
+        try {
+            var countResult = orderServiceClient.getOrderCountByMasseur(masseurId);
+            if (countResult != null && countResult.getCode() == 0 && countResult.getData() != null) {
+                vo.setOrderCount(countResult.getData());
+            }
+        } catch (Exception e) {
+            log.warn("获取技师服务客户数失败, masseurId: {}", masseurId, e);
+        }
 
         // Fetch services from product service via HTTP
         try {

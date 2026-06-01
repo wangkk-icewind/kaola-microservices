@@ -107,4 +107,9 @@ public interface OrderService {
      * 判断用户是否有已完成订单（用于新老客判断）
      */
     boolean hasCompletedOrders(Long userId);
+
+    /**
+     * 统计技师"服务过的客户数"（已完成/已评价订单去重客户数）
+     */
+    int countServedCustomersByMasseur(Long masseurId);
 }
