@@ -27,5 +27,9 @@ public class PaymentConfig {
         private String privateKeyPath;
         /** 支付回调通知 URL */
         private String notifyUrl;
+        /** 微信支付公钥内容（PEM 格式，从商户平台-API安全-管理公钥获取） */
+        private String publicKey;
+        /** 微信支付公钥 ID（WechatPay-xxx 格式） */
+        private String publicKeyId;
     }
 }

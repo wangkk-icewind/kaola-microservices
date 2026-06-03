@@ -29,7 +29,7 @@ public class AdminPaymentConfigController {
 
     /** 敏感字段：展示时掩码 */
     private static final Set<String> SENSITIVE_KEYS = Set.of(
-            "wechat.apiV3Key", "wechat.privateKey", "wechat.privateKeyPath"
+            "wechat.apiV3Key", "wechat.privateKey", "wechat.privateKeyPath", "wechat.publicKey"
     );
 
     private final SystemSettingMapper settingMapper;
@@ -94,7 +94,8 @@ public class AdminPaymentConfigController {
     private List<String> defaultKeys() {
         return List.of(
                 "wechat.appId", "wechat.mchId", "wechat.mchSerialNo",
-                "wechat.apiV3Key", "wechat.privateKey", "wechat.privateKeyPath", "wechat.notifyUrl"
+                "wechat.apiV3Key", "wechat.privateKey", "wechat.privateKeyPath", "wechat.notifyUrl",
+                "wechat.publicKeyId", "wechat.publicKey"
         );
     }
 
@@ -107,6 +108,8 @@ public class AdminPaymentConfigController {
             case "wechat.privateKey" -> "商户 API 私钥（PEM 内容）";
             case "wechat.privateKeyPath" -> "商户 API 私钥文件路径";
             case "wechat.notifyUrl" -> "支付回调通知 URL";
+            case "wechat.publicKey" -> "微信支付公钥内容（PEM格式）";
+            case "wechat.publicKeyId" -> "微信支付公钥ID（WechatPay-xxx格式）";
             default -> key;
         };
     }

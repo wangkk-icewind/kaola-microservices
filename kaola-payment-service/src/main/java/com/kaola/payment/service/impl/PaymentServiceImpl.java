@@ -10,7 +10,7 @@ import com.kaola.payment.model.vo.PaymentVO;
 import com.kaola.payment.model.vo.WxPayParamsVO;
 import com.kaola.payment.service.PaymentConfigService;
 import com.kaola.payment.service.PaymentService;
-import com.wechat.pay.java.core.RSAAutoCertificateConfig;
+import com.wechat.pay.java.core.RSAPublicKeyConfig;
 import com.wechat.pay.java.core.notification.NotificationConfig;
 import com.wechat.pay.java.core.notification.NotificationParser;
 import com.wechat.pay.java.core.notification.RequestParam;
@@ -44,7 +44,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     // WeChat Pay 客户端缓存（配置变更时重建）
     private volatile JsapiServiceExtension cachedJsapi;
-    private volatile RSAAutoCertificateConfig cachedWxConfig;
+    private volatile RSAPublicKeyConfig cachedWxConfig;
     private volatile String cachedConfigHash;
 
     // ── 创建微信 JSAPI 支付 ────────────────────────────────────────────────
@@ -55,10 +55,19 @@ public class PaymentServiceImpl implements PaymentService {
                                          Long userId, String openid) {
         log.info("创建微信支付, orderId={}, orderNo={}, amount={}", orderId, orderNo, amount);
 
-        // 复用已有待支付记录
+        // 复用已有待支付记录；若金额已变（如后台改价），换新 out_trade_no + 更新金额后重新下单
+        // （微信不允许同一 out_trade_no 修改金额，必须换单号）
         Payment existing = paymentMapper.findByOrderId(orderId);
         if (existing != null && PaymentStatus.PENDING.getCode().equals(existing.getStatus())) {
-            log.info("复用待支付记录 id={}", existing.getId());
+            if (existing.getAmount() != null && existing.getAmount().compareTo(amount) != 0) {
+                log.info("待支付记录金额变化 {}→{}，换单号重下, id={}", existing.getAmount(), amount, existing.getId());
+                existing.setAmount(amount);
+                existing.setPaymentNo(generatePaymentNo());
+                existing.setPrepayId(null);
+                paymentMapper.updateById(existing);
+            } else {
+                log.info("复用待支付记录 id={}", existing.getId());
+            }
             return buildVoWithWxParams(existing, openid);
         }
 
@@ -138,7 +147,7 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentConfig.WechatPayConfig cfg = configService.getWechatConfig();
             validateWechatConfig(cfg);
 
-            RSAAutoCertificateConfig wxConfig = getOrBuildWxConfig(cfg);
+            RSAPublicKeyConfig wxConfig = getOrBuildWxConfig(cfg);
             NotificationParser parser = new NotificationParser((NotificationConfig) wxConfig);
 
             RequestParam requestParam = new RequestParam.Builder()
@@ -238,7 +247,7 @@ public class PaymentServiceImpl implements PaymentService {
         return cachedJsapi;
     }
 
-    private synchronized RSAAutoCertificateConfig getOrBuildWxConfig(PaymentConfig.WechatPayConfig cfg) {
+    private synchronized RSAPublicKeyConfig getOrBuildWxConfig(PaymentConfig.WechatPayConfig cfg) {
         String hash = configHash(cfg);
         if (cachedWxConfig == null || !hash.equals(cachedConfigHash)) {
             cachedWxConfig = buildRsaConfig(cfg);
@@ -247,11 +256,12 @@ public class PaymentServiceImpl implements PaymentService {
         return cachedWxConfig;
     }
 
-    private RSAAutoCertificateConfig buildRsaConfig(PaymentConfig.WechatPayConfig cfg) {
-        RSAAutoCertificateConfig.Builder builder = new RSAAutoCertificateConfig.Builder()
+    private RSAPublicKeyConfig buildRsaConfig(PaymentConfig.WechatPayConfig cfg) {
+        RSAPublicKeyConfig.Builder builder = new RSAPublicKeyConfig.Builder()
                 .merchantId(cfg.getMchId())
                 .merchantSerialNumber(cfg.getMchSerialNo())
-                .apiV3Key(cfg.getApiV3Key());
+                .publicKey(cfg.getPublicKey())
+                .publicKeyId(cfg.getPublicKeyId());
 
         if (StringUtils.hasText(cfg.getPrivateKeyPath())) {
             builder.privateKeyFromPath(cfg.getPrivateKeyPath());
@@ -262,15 +272,17 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private String configHash(PaymentConfig.WechatPayConfig cfg) {
-        return String.valueOf((cfg.getMchId() + cfg.getMchSerialNo() + cfg.getApiV3Key()).hashCode());
+        return String.valueOf((cfg.getMchId() + cfg.getMchSerialNo()
+                + cfg.getPublicKeyId() + cfg.getPublicKey()).hashCode());
     }
 
     private void validateWechatConfig(PaymentConfig.WechatPayConfig cfg) {
         if (!StringUtils.hasText(cfg.getMchId())
                 || !StringUtils.hasText(cfg.getMchSerialNo())
-                || !StringUtils.hasText(cfg.getApiV3Key())
-                || (!StringUtils.hasText(cfg.getPrivateKey()) && !StringUtils.hasText(cfg.getPrivateKeyPath()))) {
-            throw new RuntimeException("微信支付配置不完整，请在后台 [系统配置→支付设置] 填写完整参数");
+                || (!StringUtils.hasText(cfg.getPrivateKey()) && !StringUtils.hasText(cfg.getPrivateKeyPath()))
+                || !StringUtils.hasText(cfg.getPublicKey())
+                || !StringUtils.hasText(cfg.getPublicKeyId())) {
+            throw new RuntimeException("微信支付配置不完整，请在后台 [系统配置→支付设置] 填写完整参数（含微信支付公钥）");
         }
     }
 

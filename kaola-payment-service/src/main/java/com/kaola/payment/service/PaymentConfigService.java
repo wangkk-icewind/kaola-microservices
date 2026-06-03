@@ -42,6 +42,8 @@ public class PaymentConfigService {
             merged.setPrivateKey(firstNonBlank(remote.get("wechat.privateKey"), fallback.getWechat().getPrivateKey()));
             merged.setPrivateKeyPath(firstNonBlank(remote.get("wechat.privateKeyPath"), fallback.getWechat().getPrivateKeyPath()));
             merged.setNotifyUrl(firstNonBlank(remote.get("wechat.notifyUrl"), fallback.getWechat().getNotifyUrl()));
+            merged.setPublicKey(firstNonBlank(remote.get("wechat.publicKey"), fallback.getWechat().getPublicKey()));
+            merged.setPublicKeyId(firstNonBlank(remote.get("wechat.publicKeyId"), fallback.getWechat().getPublicKeyId()));
 
             return merged;
         } catch (Exception e) {

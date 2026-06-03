@@ -56,6 +56,9 @@ payment:
     private-key: ${WECHAT_PAY_PRIVATE_KEY:}
     private-key-path: ${WECHAT_PAY_PRIVATE_KEY_PATH:}
     notify-url: ${WECHAT_PAY_NOTIFY_URL:https://kaolalaile.com/api/payment/wechat/notify}
+    # 微信支付公钥（替代平台证书，从商户平台-API安全-管理公钥获取）
+    public-key: ${WECHAT_PAY_PUBLIC_KEY:}
+    public-key-id: ${WECHAT_PAY_PUBLIC_KEY_ID:}
 
 # Feign 服务地址（开发环境直连，生产通过 Nacos）
 feign:
