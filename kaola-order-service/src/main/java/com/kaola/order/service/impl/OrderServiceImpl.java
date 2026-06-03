@@ -59,6 +59,7 @@ public class OrderServiceImpl implements OrderService {
     private final StoreServiceClient storeServiceClient;
     private final PaymentServiceClient paymentServiceClient;
     private final UserServiceClient userServiceClient;
+    private final com.kaola.order.mapper.RefundMapper refundMapper;
 
     /** 模拟支付开关：生产环境为 false，禁止 /pay 直接将订单标记为已支付（须走真实微信支付） */
     @org.springframework.beans.factory.annotation.Value("${order.mock-pay-enabled:false}")
@@ -632,6 +633,26 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
+        // 退款状态：取最近一条退款记录（审核中/已退款/被拒），供端上展示
+        try {
+            com.kaola.order.model.entity.Refund pending = refundMapper.findPendingByOrderId(order.getId());
+            if (pending != null) {
+                vo.setRefundStatus(0); // 审核中
+            } else if (OrderStatus.REFUNDED.getCode().equals(order.getStatus())) {
+                vo.setRefundStatus(1); // 已退款
+            } else {
+                com.kaola.order.model.entity.Refund last = refundMapper.selectOne(
+                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.kaola.order.model.entity.Refund>()
+                                .eq(com.kaola.order.model.entity.Refund::getOrderId, order.getId())
+                                .orderByDesc(com.kaola.order.model.entity.Refund::getCreateTime)
+                                .last("LIMIT 1"));
+                if (last != null && last.getStatus() == 2) {
+                    vo.setRefundStatus(2);
+                    vo.setRefundRejectReason(last.getAuditRemark());
+                }
+            }
+        } catch (Exception ignore) { }
+
         return vo;
     }
 
@@ -959,6 +980,100 @@ public class OrderServiceImpl implements OrderService {
     public int countServedCustomersByMasseur(Long masseurId) {
         if (masseurId == null) return 0;
         return orderRepository.countDistinctCustomersByMasseur(masseurId);
+    }
+
+    @Override
+    @Transactional
+    public boolean applyRefund(Long userId, Long orderId, String reason) {
+        Order order = orderRepository.selectById(orderId);
+        if (order == null || order.getDeleted() == 1) throw new RuntimeException("订单不存在");
+        if (!order.getUserId().equals(userId)) throw new RuntimeException("无权操作该订单");
+        // 仅"待服务"(已付未服务, status=2) 可申请退款
+        if (!OrderStatus.PAID.getCode().equals(order.getStatus())) {
+            throw new RuntimeException("当前状态不可申请退款");
+        }
+        if (refundMapper.findPendingByOrderId(orderId) != null) {
+            throw new RuntimeException("已有退款申请正在处理中");
+        }
+        com.kaola.order.model.entity.Refund refund = new com.kaola.order.model.entity.Refund();
+        refund.setOrderId(orderId);
+        refund.setOrderNo(order.getOrderNo());
+        refund.setUserId(userId);
+        refund.setAmount(order.getPayAmount());
+        refund.setReason(reason);
+        refund.setStatus(0); // 申请中
+        return refundMapper.insert(refund) > 0;
+    }
+
+    @Override
+    @Transactional
+    public boolean approveRefund(Long refundId) {
+        com.kaola.order.model.entity.Refund refund = refundMapper.selectById(refundId);
+        if (refund == null || refund.getDeleted() == 1) throw new RuntimeException("退款申请不存在");
+        if (refund.getStatus() != 0) throw new RuntimeException("该退款申请已处理");
+        Order order = orderRepository.selectById(refund.getOrderId());
+        if (order == null) throw new RuntimeException("订单不存在");
+        // 真退微信（失败则抛错、不改状态）
+        doWechatRefund(order.getId(), refund.getAmount());
+        refund.setStatus(1); // 已同意已退款
+        refund.setAuditTime(LocalDateTime.now());
+        refundMapper.updateById(refund);
+        order.setStatus(OrderStatus.REFUNDED.getCode());
+        order.setRemark("用户申请退款，已同意");
+        return orderRepository.updateById(order) > 0;
+    }
+
+    @Override
+    @Transactional
+    public boolean rejectRefund(Long refundId, String remark) {
+        com.kaola.order.model.entity.Refund refund = refundMapper.selectById(refundId);
+        if (refund == null || refund.getDeleted() == 1) throw new RuntimeException("退款申请不存在");
+        if (refund.getStatus() != 0) throw new RuntimeException("该退款申请已处理");
+        refund.setStatus(2); // 已拒绝
+        refund.setAuditRemark(remark);
+        refund.setAuditTime(LocalDateTime.now());
+        return refundMapper.updateById(refund) > 0; // 订单状态不变
+    }
+
+    @Override
+    @Transactional
+    public boolean directRefund(Long orderId, String remark, Integer commissionOverride) {
+        Order order = orderRepository.selectById(orderId);
+        if (order == null || order.getDeleted() == 1) throw new RuntimeException("订单不存在");
+        int st = order.getStatus();
+        if (st == 0 || st == 6) throw new RuntimeException("当前状态不允许退款");
+        // 已付款(2/3/4/5) → 真退微信；待支付(1) 仅取消、无需退款
+        if (st >= 2 && st <= 5) {
+            doWechatRefund(orderId, order.getPayAmount());
+        }
+        if (st >= 4) {
+            order.setStatus(OrderStatus.REFUNDED.getCode());
+            order.setCommissionOverride(commissionOverride != null ? commissionOverride : 1);
+        } else {
+            order.setStatus(st == 1 ? OrderStatus.CANCELLED.getCode() : OrderStatus.REFUNDED.getCode());
+        }
+        order.setRemark(remark != null ? remark : "管理员退款");
+        // 审计：补一条已同意退款记录
+        com.kaola.order.model.entity.Refund r = new com.kaola.order.model.entity.Refund();
+        r.setOrderId(orderId); r.setOrderNo(order.getOrderNo()); r.setUserId(order.getUserId());
+        r.setAmount(order.getPayAmount()); r.setReason(remark != null ? remark : "管理员直接退款");
+        r.setStatus(1); r.setAuditTime(LocalDateTime.now());
+        refundMapper.insert(r);
+        return orderRepository.updateById(order) > 0;
+    }
+
+    /** 调 payment-service 真退微信；失败抛异常以中止事务 */
+    private void doWechatRefund(Long orderId, java.math.BigDecimal amount) {
+        try {
+            var result = paymentServiceClient.refund(orderId, amount);
+            if (result == null || result.getCode() != 0 || !Boolean.TRUE.equals(result.getData())) {
+                String msg = result != null && result.getMessage() != null ? result.getMessage() : "微信退款失败";
+                throw new RuntimeException(msg);
+            }
+        } catch (RuntimeException e) {
+            log.error("微信退款失败, orderId={}", orderId, e);
+            throw new RuntimeException("微信退款失败：" + e.getMessage());
+        }
     }
 
     private void fillStoreInfo(OrderVO vo, Long storeId) {

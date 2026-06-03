@@ -43,6 +43,8 @@ public class AdminOrderController {
     private final StoreServiceClient storeServiceClient;
     private final MasseurServiceClient masseurServiceClient;
     private final ProductServiceClient productServiceClient;
+    private final com.kaola.order.service.OrderService orderService;
+    private final com.kaola.order.mapper.RefundMapper refundMapper;
 
     /**
      * 管理端订单列表 VO
@@ -346,30 +348,69 @@ public class AdminOrderController {
     /**
      * 退款
      */
-    @Operation(summary = "订单退款", description = "处理订单退款")
+    @Operation(summary = "订单退款", description = "后台直接退款：已付款单真退微信 + 状态更新")
     @PostMapping("/refund")
     public Result<Boolean> refundOrder(@RequestBody Order request) {
-        log.info("订单退款, id: {}", request.getId());
+        log.info("后台直接退款, id: {}", request.getId());
         if (request.getId() == null) return Result.error("订单ID不能为空");
+        try {
+            boolean ok = orderService.directRefund(request.getId(), request.getRemark(), request.getCommissionOverride());
+            return ok ? Result.success(true) : Result.error("退款失败");
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
 
-        Order order = orderRepository.selectById(request.getId());
-        if (order == null || order.getDeleted() == 1) return Result.error("订单不存在");
-        // 已取消(0) 或 已退款(6) 不可再退款
-        if (order.getStatus() == 0 || order.getStatus() == 6) {
-            return Result.error("当前状态不允许退款");
+    /** 退款申请列表（默认待审核 status=0） */
+    @Operation(summary = "退款申请列表", description = "查看用户提交的退款申请，可按状态筛选")
+    @GetMapping("/refund/list")
+    public Result<java.util.List<java.util.Map<String, Object>>> refundList(
+            @RequestParam(required = false, defaultValue = "0") Integer status) {
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.kaola.order.model.entity.Refund> w =
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+        if (status != null) w.eq(com.kaola.order.model.entity.Refund::getStatus, status);
+        w.orderByDesc(com.kaola.order.model.entity.Refund::getCreateTime);
+        java.util.List<com.kaola.order.model.entity.Refund> list = refundMapper.selectList(w);
+        java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+        for (com.kaola.order.model.entity.Refund r : list) {
+            java.util.Map<String, Object> m = new java.util.HashMap<>();
+            m.put("id", r.getId());
+            m.put("orderId", r.getOrderId());
+            m.put("orderNo", r.getOrderNo());
+            m.put("userId", r.getUserId());
+            m.put("amount", r.getAmount());
+            m.put("reason", r.getReason());
+            m.put("status", r.getStatus());
+            m.put("auditRemark", r.getAuditRemark());
+            m.put("createTime", r.getCreateTime() != null ? r.getCreateTime().toString() : null);
+            out.add(m);
         }
-        // 已完成(4) 或 已评价(5) → 已退款(6)，服务已发生，默认发放师傅提成
-        // 待支付(1)/已支付(2)/服务中(3) → 已取消(0)，服务未发生
-        if (order.getStatus() >= 4) {
-            order.setStatus(6);
-            Integer override = request.getCommissionOverride();
-            order.setCommissionOverride(override != null ? override : 1);
-        } else {
-            order.setStatus(0);
+        return Result.success(out);
+    }
+
+    @Operation(summary = "同意退款", description = "审核通过：真退微信 + 订单置已退款")
+    @PostMapping("/refund/approve")
+    public Result<Boolean> approveRefund(@RequestBody java.util.Map<String, Object> body) {
+        Object id = body.get("refundId");
+        if (id == null) return Result.error("refundId 不能为空");
+        try {
+            return Result.success(orderService.approveRefund(Long.valueOf(id.toString())));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
         }
-        order.setRemark(request.getRemark() != null ? request.getRemark() : "管理员退款");
-        int rows = orderRepository.updateById(order);
-        return rows > 0 ? Result.success(true) : Result.error("退款失败");
+    }
+
+    @Operation(summary = "拒绝退款", description = "审核拒绝：订单状态不变")
+    @PostMapping("/refund/reject")
+    public Result<Boolean> rejectRefund(@RequestBody java.util.Map<String, Object> body) {
+        Object id = body.get("refundId");
+        if (id == null) return Result.error("refundId 不能为空");
+        String remark = body.get("remark") != null ? body.get("remark").toString() : null;
+        try {
+            return Result.success(orderService.rejectRefund(Long.valueOf(id.toString()), remark));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     // ===== 私有辅助方法 =====

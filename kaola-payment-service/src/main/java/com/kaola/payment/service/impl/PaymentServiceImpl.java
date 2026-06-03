@@ -207,6 +207,11 @@ public class PaymentServiceImpl implements PaymentService {
         if (payment == null) {
             throw new RuntimeException("未找到支付记录: orderId=" + orderId);
         }
+        // 幂等：已退款直接返回成功，防重复退
+        if (PaymentStatus.REFUNDED.getCode().equals(payment.getStatus())) {
+            log.info("订单已退款，忽略重复退款, orderId={}", orderId);
+            return true;
+        }
         if (!PaymentStatus.SUCCESS.getCode().equals(payment.getStatus())) {
             throw new RuntimeException("当前支付状态不可退款: status=" + payment.getStatus());
         }

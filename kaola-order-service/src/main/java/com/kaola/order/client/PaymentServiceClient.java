@@ -22,6 +22,12 @@ public interface PaymentServiceClient {
             @RequestParam("userId") Long userId,
             @RequestParam("openid") String openid);
 
+    /** 申请微信退款（payment-service 按 out_trade_no 退），返回是否成功 */
+    @PostMapping("/payment/refund")
+    Result<Boolean> refund(
+            @RequestParam("orderId") Long orderId,
+            @RequestParam("amount") BigDecimal amount);
+
     /** payment-service PaymentVO 的本地镜像（只取需要的字段） */
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)

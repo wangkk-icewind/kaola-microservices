@@ -188,6 +188,19 @@ public class OrderController {
     }
 
     /**
+     * 用户申请退款（仅待服务订单）→ 生成待审核退款申请
+     */
+    @Operation(summary = "申请退款", description = "用户对待服务订单发起退款申请，待后台审核")
+    @PostMapping("/{id}/refund-apply")
+    public Result<Boolean> applyRefund(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable @NotNull(message = "订单ID不能为空") Long id,
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : null;
+        return Result.success(orderService.applyRefund(userId, id, reason));
+    }
+
+    /**
      * 标记订单为已评价（由 review-service 回调）
      */
     @Operation(summary = "标记已评价", description = "将已完成订单状态置为已评价（review-service 回调）")

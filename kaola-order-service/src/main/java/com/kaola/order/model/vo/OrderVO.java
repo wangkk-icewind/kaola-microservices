@@ -128,4 +128,14 @@ public class OrderVO implements Serializable {
      * 微信 JSAPI 调起支付参数（仅 paymentMethod=wechat 时返回）
      */
     private WxPayResult wxPayParams;
+
+    /**
+     * 退款状态：null=无退款 0=退款审核中 1=已退款 2=退款被拒
+     */
+    private Integer refundStatus;
+
+    /**
+     * 退款被拒原因（refundStatus=2 时）
+     */
+    private String refundRejectReason;
 }
