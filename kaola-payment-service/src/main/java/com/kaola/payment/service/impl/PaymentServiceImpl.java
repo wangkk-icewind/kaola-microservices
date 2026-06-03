@@ -263,7 +263,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .merchantId(cfg.getMchId())
                 .merchantSerialNumber(cfg.getMchSerialNo())
                 .publicKey(cfg.getPublicKey())
-                .publicKeyId(cfg.getPublicKeyId());
+                .publicKeyId(cfg.getPublicKeyId())
+                // 回调/响应密文走 AEAD 解密，必需 APIv3Key（公钥模式同样需要）；缺它会报 SecretKeySpec "Missing argument"
+                .apiV3Key(cfg.getApiV3Key());
 
         if (StringUtils.hasText(cfg.getPrivateKeyPath())) {
             builder.privateKeyFromPath(cfg.getPrivateKeyPath());
@@ -283,8 +285,9 @@ public class PaymentServiceImpl implements PaymentService {
                 || !StringUtils.hasText(cfg.getMchSerialNo())
                 || (!StringUtils.hasText(cfg.getPrivateKey()) && !StringUtils.hasText(cfg.getPrivateKeyPath()))
                 || !StringUtils.hasText(cfg.getPublicKey())
-                || !StringUtils.hasText(cfg.getPublicKeyId())) {
-            throw new RuntimeException("微信支付配置不完整，请在后台 [系统配置→支付设置] 填写完整参数（含微信支付公钥）");
+                || !StringUtils.hasText(cfg.getPublicKeyId())
+                || !StringUtils.hasText(cfg.getApiV3Key())) {  // 回调/响应密文解密必需
+            throw new RuntimeException("微信支付配置不完整，请在后台 [系统配置→支付设置] 填写完整参数（含微信支付公钥、APIv3密钥）");
         }
     }
 
