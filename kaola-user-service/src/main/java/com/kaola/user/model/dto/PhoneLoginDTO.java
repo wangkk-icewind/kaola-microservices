@@ -12,4 +12,7 @@ public class PhoneLoginDTO {
 
     @NotBlank(message = "验证码不能为空")
     private String code;
+
+    /** 微信 wx.login() 返回的 code，用于解析并绑定 openid（手机号登录用户也能微信支付）；可选 */
+    private String wxCode;
 }

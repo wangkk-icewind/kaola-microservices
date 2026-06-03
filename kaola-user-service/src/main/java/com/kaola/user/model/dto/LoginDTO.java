@@ -20,4 +20,7 @@ public class LoginDTO implements Serializable {
      */
     @NotBlank(message = "授权码不能为空")
     private String code;
+
+    /** getPhoneNumber 按钮返回的 code，用于解析并绑定手机号（微信登录也拿手机号）；可选 */
+    private String phoneCode;
 }
