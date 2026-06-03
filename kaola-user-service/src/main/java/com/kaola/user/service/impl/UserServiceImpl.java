@@ -32,13 +32,14 @@ public class UserServiceImpl implements UserService {
     private final StringRedisTemplate redisTemplate;
 
     private static final String SMS_CODE_KEY_PREFIX = "sms:code:";
+    private static final String WX_ACCESS_TOKEN_KEY = "wx:access_token";
     private static final Duration SMS_CODE_TTL = Duration.ofMinutes(5);
     private static final String MOCK_SMS_CODE = "123456";
     private static final String ORDER_SERVICE_URL = "http://localhost:8086";
     private static final String ADMIN_SERVICE_URL = "http://localhost:8095";
 
     @Override
-    public LoginVO login(String code) {
+    public LoginVO login(String code, String phoneCode) {
         log.info("用户微信登录, code: {}", code);
 
         String loginMode = systemSettingMapper.findValueByKey("wx_login_mode");
@@ -57,17 +58,39 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        // 查找或创建用户
+        // 解析手机号（getPhoneNumber 授权）；mock/缺省/失败返回 null，不阻断登录
+        String phone = resolvePhone(phoneCode, isMockMode);
+
+        // 1) 按 openid 找
         User user = userMapper.findByOpenId(openId);
+        // 2) 无 openid 账号但手机号已注册 → 复用该手机号账号并绑 openid（去重，不新建）
+        if (user == null && phone != null) {
+            User byPhone = userMapper.findByPhone(phone);
+            if (byPhone != null) {
+                user = byPhone;
+                if (user.getOpenId() == null || user.getOpenId().isEmpty()) {
+                    user.setOpenId(openId);
+                    userMapper.updateById(user);
+                    log.info("微信登录复用手机号账号并绑定 openid, userId={}", user.getId());
+                }
+            }
+        }
+        // 3) 仍无 → 新建
         if (user == null) {
             user = new User();
             user.setOpenId(openId);
+            if (phone != null) user.setPhone(phone);
             user.setNickname(isMockMode ? "测试用户" : "微信用户");
             user.setStatus(1);
             user.setPoint(0);
             user.setLevel(1);
             userMapper.insert(user);
             log.info("新用户注册, openId: {}, userId: {}", openId, user.getId());
+        } else if (phone != null && (user.getPhone() == null || user.getPhone().isEmpty())) {
+            // 已有账号缺手机号 → 补绑
+            user.setPhone(phone);
+            userMapper.updateById(user);
+            log.info("微信登录补绑手机号, userId={}", user.getId());
         }
 
         return buildLoginVO(user, isNewUser(user.getId()));
@@ -94,7 +117,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public LoginVO phoneLogin(String phone, String verifyCode) {
+    public LoginVO phoneLogin(String phone, String verifyCode, String wxCode) {
         log.info("手机号登录, phone: {}", phone);
 
         if (verifyCode == null || verifyCode.trim().isEmpty()) {
@@ -112,17 +135,40 @@ public class UserServiceImpl implements UserService {
         // 验证通过后删除验证码（一次性使用）
         redisTemplate.delete(SMS_CODE_KEY_PREFIX + phone);
 
+        // 解析 openid（wx.login）；mock/缺省/失败返回 null，不阻断登录
+        String openId = resolveOpenId(wxCode);
+
+        // 1) 按手机号找
         User user = userMapper.findByPhone(phone);
+        // 2) 无手机号账号但 openid 已注册 → 复用该微信账号并绑手机号（去重，不新建）
+        if (user == null && openId != null) {
+            User byOpenId = userMapper.findByOpenId(openId);
+            if (byOpenId != null) {
+                user = byOpenId;
+                if (user.getPhone() == null || user.getPhone().isEmpty()) {
+                    user.setPhone(phone);
+                    userMapper.updateById(user);
+                    log.info("手机号登录复用微信账号并绑定手机号, userId={}", user.getId());
+                }
+            }
+        }
+        // 3) 仍无 → 新建（openid 未被他人占用才一并写入）
         if (user == null) {
-            // 自动注册
             user = new User();
             user.setPhone(phone);
+            if (openId != null && userMapper.findByOpenId(openId) == null) user.setOpenId(openId);
             user.setNickname("用户" + phone.substring(7));
             user.setStatus(1);
             user.setPoint(0);
             user.setLevel(1);
             userMapper.insert(user);
             log.info("手机号新用户注册, phone: {}, userId: {}", phone, user.getId());
+        } else if (openId != null && (user.getOpenId() == null || user.getOpenId().isEmpty())
+                && userMapper.findByOpenId(openId) == null) {
+            // 已有账号缺 openid 且该 openid 未被他人占用 → 补绑
+            user.setOpenId(openId);
+            userMapper.updateById(user);
+            log.info("手机号登录补绑 openid, userId={}", user.getId());
         }
 
         return buildLoginVO(user, isNewUser(user.getId()));
@@ -150,6 +196,73 @@ public class UserServiceImpl implements UserService {
             log.error("调用微信登录API失败", e);
             return null;
         }
+    }
+
+    /** 解析 openid（手机号登录补绑用）；mock/devlocal/失败返回 null，不阻断登录 */
+    private String resolveOpenId(String wxCode) {
+        if (wxCode == null || wxCode.isBlank() || wxCode.startsWith("devlocal")) return null;
+        try {
+            return getOpenIdFromWeChat(wxCode);
+        } catch (Exception e) {
+            log.warn("解析 openid 失败(忽略), wxCode 前缀={}", wxCode.length() > 6 ? wxCode.substring(0, 6) : wxCode, e);
+            return null;
+        }
+    }
+
+    /** 解析手机号（微信登录补绑用）；mock/缺省/失败返回 null，不阻断登录 */
+    private String resolvePhone(String phoneCode, boolean isMockMode) {
+        if (phoneCode == null || phoneCode.isBlank() || isMockMode || phoneCode.startsWith("devlocal")) return null;
+        try {
+            return getPhoneByCode(phoneCode);
+        } catch (Exception e) {
+            log.warn("解析手机号失败(忽略)", e);
+            return null;
+        }
+    }
+
+    /** 获取微信稳定版 access_token，Redis 缓存（提前 200s 过期） */
+    private String getStableAccessToken() {
+        String cached = redisTemplate.opsForValue().get(WX_ACCESS_TOKEN_KEY);
+        if (cached != null && !cached.isEmpty()) return cached;
+        String appId = systemSettingMapper.findValueByKey("wx_app_id");
+        String appSecret = systemSettingMapper.findValueByKey("wx_app_secret");
+        if (appId == null || appId.isEmpty() || appSecret == null || appSecret.isEmpty()) {
+            log.error("微信AppID或AppSecret未配置");
+            return null;
+        }
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("grant_type", "client_credential");
+        body.put("appid", appId);
+        body.put("secret", appSecret);
+        String resp = restTemplate.postForObject("https://api.weixin.qq.com/cgi-bin/stable_token", body, String.class);
+        JSONObject json = JSON.parseObject(resp);
+        String token = json != null ? json.getString("access_token") : null;
+        if (token == null || token.isEmpty()) {
+            log.error("获取 access_token 失败: {}", resp);
+            return null;
+        }
+        int expire = json.getIntValue("expires_in");
+        if (expire <= 0) expire = 7200;
+        redisTemplate.opsForValue().set(WX_ACCESS_TOKEN_KEY, token, Duration.ofSeconds(Math.max(60, expire - 200)));
+        return token;
+    }
+
+    /** 用 getPhoneNumber 的 code 换取手机号（purePhoneNumber） */
+    private String getPhoneByCode(String phoneCode) {
+        String token = getStableAccessToken();
+        if (token == null) return null;
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("code", phoneCode);
+        String resp = restTemplate.postForObject(
+                "https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=" + token,
+                body, String.class);
+        JSONObject json = JSON.parseObject(resp);
+        if (json == null || json.getIntValue("errcode") != 0) {
+            log.error("获取手机号失败: {}", resp);
+            return null;
+        }
+        JSONObject info = json.getJSONObject("phone_info");
+        return info != null ? info.getString("purePhoneNumber") : null;
     }
 
     @SuppressWarnings("unchecked")

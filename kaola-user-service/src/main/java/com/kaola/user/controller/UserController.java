@@ -42,7 +42,7 @@ public class UserController {
     @Operation(summary = "微信登录", description = "通过微信授权码进行登录")
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO loginDTO) {
-        LoginVO loginVO = userService.login(loginDTO.getCode());
+        LoginVO loginVO = userService.login(loginDTO.getCode(), loginDTO.getPhoneCode());
         return Result.success(loginVO);
     }
 
@@ -52,7 +52,7 @@ public class UserController {
     @Operation(summary = "手机号登录", description = "通过手机号和验证码登录")
     @PostMapping("/phone-login")
     public Result<LoginVO> phoneLogin(@Valid @RequestBody PhoneLoginDTO dto) {
-        LoginVO loginVO = userService.phoneLogin(dto.getPhone(), dto.getCode());
+        LoginVO loginVO = userService.phoneLogin(dto.getPhone(), dto.getCode(), dto.getWxCode());
         return Result.success(loginVO);
     }
 

@@ -18,7 +18,7 @@ public interface UserService {
      * @param code 微信授权码
      * @return 登录结果
      */
-    LoginVO login(String code);
+    LoginVO login(String code, String phoneCode);
 
     /**
      * 发送短信验证码（存入Redis，TTL=5分钟）
@@ -35,7 +35,7 @@ public interface UserService {
      * @param verifyCode 验证码
      * @return 登录结果
      */
-    LoginVO phoneLogin(String phone, String verifyCode);
+    LoginVO phoneLogin(String phone, String verifyCode, String wxCode);
 
     /**
      * 获取用户信息
