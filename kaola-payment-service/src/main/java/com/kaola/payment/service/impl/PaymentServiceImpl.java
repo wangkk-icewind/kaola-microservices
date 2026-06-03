@@ -55,10 +55,12 @@ public class PaymentServiceImpl implements PaymentService {
                                          Long userId, String openid) {
         log.info("创建微信支付, orderId={}, orderNo={}, amount={}", orderId, orderNo, amount);
 
-        // 复用已有待支付记录；若金额已变（如后台改价），换新 out_trade_no + 更新金额后重新下单
-        // （微信不允许同一 out_trade_no 修改金额，必须换单号）
+        // 复用已有待支付记录
         Payment existing = paymentMapper.findByOrderId(orderId);
         if (existing != null && PaymentStatus.PENDING.getCode().equals(existing.getStatus())) {
+            // TEMP（测试支撑，随 /admin/order/update-amount 改金额测试一起下线）：
+            // 正常流程不会改待支付订单金额，此分支仅被「改金额(测试)」触发；金额变了就换 out_trade_no 重下
+            // （微信不允许同一 out_trade_no 改金额）。注意：未关旧单(无 closeOrder 能力)，仅供受控测试。
             if (existing.getAmount() != null && existing.getAmount().compareTo(amount) != 0) {
                 log.info("待支付记录金额变化 {}→{}，换单号重下, id={}", existing.getAmount(), amount, existing.getId());
                 existing.setAmount(amount);
