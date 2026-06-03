@@ -68,7 +68,16 @@ public class PaymentController {
     public Result<Boolean> refund(
             @Parameter(description = "订单 ID") @RequestParam @NotNull Long orderId,
             @Parameter(description = "退款金额（元）") @RequestParam @NotNull BigDecimal amount) {
-        return Result.success(paymentService.refund(orderId, amount));
+        try {
+            return Result.success(paymentService.refund(orderId, amount));
+        } catch (com.wechat.pay.java.core.exception.ServiceException e) {
+            // 透出微信真实退款错误（如 NOT_ENOUGH 余额不足），避免被 Feign 包成 "No fallback available"
+            log.error("微信退款失败, code={}, msg={}", e.getErrorCode(), e.getErrorMessage());
+            return Result.error("微信退款失败：" + e.getErrorMessage());
+        } catch (Exception e) {
+            log.error("退款失败, orderId={}", orderId, e);
+            return Result.error(e.getMessage() != null ? e.getMessage() : "退款失败");
+        }
     }
 
     @Operation(summary = "刷新支付配置缓存", description = "后台更新支付参数后调用，立即生效")

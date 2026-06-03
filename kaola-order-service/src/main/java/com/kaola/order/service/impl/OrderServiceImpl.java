@@ -1062,17 +1062,20 @@ public class OrderServiceImpl implements OrderService {
         return orderRepository.updateById(order) > 0;
     }
 
-    /** 调 payment-service 真退微信；失败抛异常以中止事务 */
+    /** 调 payment-service 真退微信；失败抛异常以中止事务（透出微信真实错误，如余额不足） */
     private void doWechatRefund(Long orderId, java.math.BigDecimal amount) {
+        com.kaola.common.core.dto.Result<Boolean> result;
         try {
-            var result = paymentServiceClient.refund(orderId, amount);
-            if (result == null || result.getCode() != 0 || !Boolean.TRUE.equals(result.getData())) {
-                String msg = result != null && result.getMessage() != null ? result.getMessage() : "微信退款失败";
-                throw new RuntimeException(msg);
-            }
-        } catch (RuntimeException e) {
-            log.error("微信退款失败, orderId={}", orderId, e);
-            throw new RuntimeException("微信退款失败：" + e.getMessage());
+            result = paymentServiceClient.refund(orderId, amount);
+        } catch (Exception e) {
+            log.error("调用退款服务失败, orderId={}", orderId, e);
+            throw new RuntimeException("退款服务暂不可用，请稍后再试");
+        }
+        if (result == null || result.getCode() != 0 || !Boolean.TRUE.equals(result.getData())) {
+            // payment-service 已带"微信退款失败：xxx"的真实原因
+            String msg = (result != null && result.getMessage() != null) ? result.getMessage() : "微信退款失败";
+            log.warn("退款失败, orderId={}, msg={}", orderId, msg);
+            throw new RuntimeException(msg);
         }
     }
 
