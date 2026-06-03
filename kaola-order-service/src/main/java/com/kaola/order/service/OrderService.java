@@ -112,4 +112,16 @@ public interface OrderService {
      * 统计技师"服务过的客户数"（已完成/已评价订单去重客户数）
      */
     int countServedCustomersByMasseur(Long masseurId);
+
+    /** 用户申请退款（仅待服务订单），生成待审核退款申请 */
+    boolean applyRefund(Long userId, Long orderId, String reason);
+
+    /** 后台同意退款：真退微信 + 订单置已退款 */
+    boolean approveRefund(Long refundId);
+
+    /** 后台拒绝退款 */
+    boolean rejectRefund(Long refundId, String remark);
+
+    /** 后台直接退款（不经用户申请）：真退微信 + 订单状态更新 */
+    boolean directRefund(Long orderId, String remark, Integer commissionOverride);
 }
