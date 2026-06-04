@@ -361,11 +361,11 @@ public class AdminOrderController {
         }
     }
 
-    /** 退款申请列表（默认待审核 status=0） */
-    @Operation(summary = "退款申请列表", description = "查看用户提交的退款申请，可按状态筛选")
+    /** 退款记录列表（不传 status=全部；传则按状态筛选，0待审核/1已退款/2已拒绝） */
+    @Operation(summary = "退款记录列表", description = "查看退款申请/记录，不传 status 返回全部")
     @GetMapping("/refund/list")
     public Result<java.util.List<java.util.Map<String, Object>>> refundList(
-            @RequestParam(required = false, defaultValue = "0") Integer status) {
+            @RequestParam(required = false) Integer status) {
         com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.kaola.order.model.entity.Refund> w =
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
         if (status != null) w.eq(com.kaola.order.model.entity.Refund::getStatus, status);

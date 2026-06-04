@@ -12,9 +12,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.kaola.payment.mapper.PaymentMapper;
+import com.kaola.payment.model.entity.Payment;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -27,6 +34,7 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final PaymentConfigService paymentConfigService;
+    private final PaymentMapper paymentMapper;
 
     @Operation(summary = "创建微信 JSAPI 支付", description = "由 order-service 内部调用，返回小程序调起支付的参数")
     @PostMapping("/wechat/create")
@@ -78,6 +86,35 @@ public class PaymentController {
             log.error("退款失败, orderId={}", orderId, e);
             return Result.error(e.getMessage() != null ? e.getMessage() : "退款失败");
         }
+    }
+
+    @Operation(summary = "支付流水列表（管理后台）", description = "分页查询支付记录，支持订单号/状态/日期筛选")
+    @GetMapping("/admin/list")
+    public Result<Map<String, Object>> adminPaymentList(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long pageSize,
+            @RequestParam(required = false) String orderNo,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        Page<Payment> page = new Page<>(current, pageSize);
+        LambdaQueryWrapper<Payment> w = new LambdaQueryWrapper<>();
+        if (orderNo != null && !orderNo.isBlank()) w.like(Payment::getOrderNo, orderNo.trim());
+        if (status != null) w.eq(Payment::getStatus, status);
+        if (startDate != null && !startDate.isBlank()) {
+            try { w.ge(Payment::getCreateTime, LocalDate.parse(startDate).atStartOfDay()); } catch (Exception ignore) {}
+        }
+        if (endDate != null && !endDate.isBlank()) {
+            try { w.le(Payment::getCreateTime, LocalDate.parse(endDate).atTime(23, 59, 59)); } catch (Exception ignore) {}
+        }
+        w.orderByDesc(Payment::getCreateTime);
+        IPage<Payment> p = paymentMapper.selectPage(page, w);
+        Map<String, Object> out = new HashMap<>();
+        out.put("records", p.getRecords());
+        out.put("total", p.getTotal());
+        out.put("current", p.getCurrent());
+        out.put("size", p.getSize());
+        return Result.success(out);
     }
 
     @Operation(summary = "刷新支付配置缓存", description = "后台更新支付参数后调用，立即生效")
